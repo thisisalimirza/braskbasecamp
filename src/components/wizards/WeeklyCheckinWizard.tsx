@@ -103,14 +103,26 @@ function WeeklyCheckinInner({
             <TrajectoryPicker value={item.trajectory} onChange={(t) => updateItem(idx, { trajectory: t })} />
           </div>
           <div className="mt-3">
-            <Label>Note (optional)</Label>
+            <Label>What&apos;s blocked? (optional)</Label>
             <Textarea
               rows={2}
               value={item.note}
               onChange={(e) => updateItem(idx, { note: e.target.value })}
-              placeholder="What's blocked?"
+              placeholder="One line — what needs a decision?"
               className="mt-1"
             />
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {["Waiting on client", "Need to ship", "Revenue stalled", "Costs too high"].map((chip) => (
+                <button
+                  key={chip}
+                  type="button"
+                  className="rounded-full border border-border/80 px-2.5 py-1 text-xs text-muted-foreground hover:bg-muted"
+                  onClick={() => updateItem(idx, { note: chip })}
+                >
+                  {chip}
+                </button>
+              ))}
+            </div>
           </div>
           <Button className="mt-4 w-full" onClick={next}>
             {idx === items.length - 1 ? "Review" : "Next venture"}
