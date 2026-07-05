@@ -56,6 +56,18 @@ export async function createCheckin(input: {
   return id;
 }
 
+export async function getLatestCheckinWithNote(ventureId: string): Promise<Checkin | null> {
+  const db = await getDb();
+  const res = await db.execute({
+    sql: `SELECT * FROM checkins
+          WHERE venture_id = ? AND note IS NOT NULL AND TRIM(note) != ''
+          ORDER BY checked_at DESC LIMIT 1`,
+    args: [ventureId],
+  });
+  if (res.rows.length === 0) return null;
+  return rowToCheckin(res.rows[0] as Record<string, unknown>);
+}
+
 export async function lastCheckinDate(ventureId: string): Promise<number | null> {
   const latest = await getLatestCheckin(ventureId);
   return latest?.checkedAt ?? null;

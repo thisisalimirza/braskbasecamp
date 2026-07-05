@@ -11,6 +11,7 @@ import {
   Lock,
   Pencil,
   Link2,
+  ClipboardList,
 } from "lucide-react";
 import {
   DndContext,
@@ -34,6 +35,7 @@ import { Button } from "@/components/ui/button";
 import { formatCents } from "@/lib/format";
 import { TRAJECTORY_LABELS, primaryActionForVenture, planStatusLabel, type VentureAction } from "@/lib/next-actions";
 import { reorderVenturesPriorityAction } from "@/app/actions";
+import { openWeeklyCheckinForVenture } from "@/components/AppShell";
 import type { VentureHealth } from "@/lib/venture-health";
 import { attentionHeadline, portfolioAttentionSnippet } from "@/lib/venture-display";
 import { MoneyTrendBadge } from "@/components/portfolio/MoneyTrendBadge";
@@ -49,14 +51,25 @@ function KpiTrendIcon({ trend }: { trend: KpiSnapshot["trend"] }) {
 
 function KpiSnapshotRow({ kpi }: { kpi: KpiSnapshot }) {
   return (
-    <div className="flex items-center justify-between gap-3 text-[11px] leading-tight">
-      <span className="truncate text-muted-foreground">{kpi.name}</span>
-      <span className="inline-flex shrink-0 items-center gap-1 font-medium tabular-nums text-foreground">
+    <div className="inline-flex max-w-full items-center gap-1 text-[11px] leading-tight">
+      <span className="shrink-0 text-muted-foreground">{kpi.name}</span>
+      <span className="shrink-0 text-muted-foreground/40">·</span>
+      <span className="inline-flex min-w-0 items-center gap-0.5 font-medium tabular-nums text-foreground">
         {kpi.formattedValue}
         <KpiTrendIcon trend={kpi.trend} />
       </span>
     </div>
   );
+}
+
+function formatPulseRecency(ms: number | null): string {
+  if (!ms) return "No pulse yet";
+  const days = Math.floor((Date.now() - ms) / (24 * 60 * 60 * 1000));
+  if (days === 0) return "Pulse · today";
+  if (days === 1) return "Pulse · yesterday";
+  if (days < 14) return `Pulse · ${days}d ago`;
+  const weeks = Math.floor(days / 7);
+  return `Pulse · ${weeks}w ago`;
 }
 
 function TrajectoryBadge({ trajectory }: { trajectory: VentureHealth["trajectory"] }) {
@@ -139,10 +152,10 @@ function VentureRow({
     isDragging: boolean;
   };
 }) {
-  const needsAttention = row.trajectory === "down" || row.openBlockerCount > 0;
-  const action = primaryActionForVenture(row);
   const blockerText = attentionHeadline(row);
   const attentionContext = portfolioAttentionSnippet(row)?.context;
+  const needsAttention = row.trajectory === "down" || row.openBlockerCount > 0 || !!blockerText;
+  const action = primaryActionForVenture(row);
 
   const style = sortable
     ? {
@@ -178,27 +191,50 @@ function VentureRow({
           </span>
         )}
       </td>
-      <td className="min-w-[148px] py-4 pr-4 align-middle">
-        <Link
-          href={`/ventures/${row.venture.slug}`}
-          className="font-medium text-foreground transition-colors hover:text-primary"
-        >
-          {row.venture.name}
-        </Link>
-        {blockerText && (
-          <p
-            className="mt-1 line-clamp-2 text-xs leading-snug text-red-700 dark:text-red-400"
-            title={attentionContext ?? undefined}
-          >
-            {row.trajectory === "down" && row.lastCheckinNote?.trim() === blockerText
-              ? "Latest: "
-              : "Blocked: "}
-            {blockerText}
-            {row.openBlockerCount > 1 && (
-              <span className="text-muted-foreground"> · +{row.openBlockerCount - 1} more</span>
+      <td className="min-w-[160px] py-4 pr-4 align-middle">
+        <div className="flex items-start gap-2">
+          <div className="min-w-0 flex-1">
+            <Link
+              href={`/ventures/${row.venture.slug}`}
+              className="font-medium text-foreground transition-colors hover:text-primary"
+            >
+              {row.venture.name}
+            </Link>
+            <p className="mt-0.5 text-[10px] leading-none text-muted-foreground/65">
+              {formatPulseRecency(row.lastCheckinAt)}
+            </p>
+            {blockerText && (
+              <p
+                className="mt-1.5 line-clamp-2 text-xs leading-snug text-red-700 dark:text-red-400"
+                title={attentionContext ?? undefined}
+              >
+                Blocker: {blockerText}
+                {row.openBlockerCount > 1 && (
+                  <span className="text-muted-foreground"> · +{row.openBlockerCount - 1} more</span>
+                )}
+              </p>
             )}
-          </p>
-        )}
+          </div>
+          {!reorderMode && (
+            <button
+              type="button"
+              onClick={() => openWeeklyCheckinForVenture(row.venture.id)}
+              className={cn(
+                "mt-0.5 shrink-0 rounded-lg border border-primary/20 bg-background px-2.5 py-1.5 text-[11px] font-medium text-primary shadow-sm",
+                "opacity-0 translate-y-0.5 transition-all duration-150",
+                "hover:border-primary/35 hover:bg-primary/[0.06] active:scale-[0.98]",
+                "group-hover:opacity-100 group-hover:translate-y-0 max-sm:opacity-100 max-sm:translate-y-0",
+                "focus-visible:opacity-100 focus-visible:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              )}
+              title="Run a pulse for this venture"
+            >
+              <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                <ClipboardList className="size-3" />
+                Pulse
+              </span>
+            </button>
+          )}
+        </div>
       </td>
       <td className="py-4 pr-4 align-middle">
         <div className="flex items-center gap-2">
@@ -222,9 +258,9 @@ function VentureRow({
           <span className="text-xs text-muted-foreground">—</span>
         )}
       </td>
-      <td className="min-w-[148px] py-4 pr-4 align-middle">
+      <td className="max-w-[200px] py-4 pr-4 align-middle">
         {row.kpiSnapshots.length > 0 ? (
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col items-start gap-1">
             {row.kpiSnapshots.map((kpi) => (
               <KpiSnapshotRow key={kpi.id} kpi={kpi} />
             ))}

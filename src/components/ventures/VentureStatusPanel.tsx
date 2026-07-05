@@ -68,7 +68,7 @@ export function VentureStatusPanel({
       {attention ? (
         <div className="mt-4 rounded-xl border border-red-200/80 bg-red-50/90 px-4 py-3 text-sm leading-relaxed text-red-950 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-100">
           <p className="flex items-center gap-1.5 font-mono text-[10px] font-medium uppercase tracking-wider text-red-800/80 dark:text-red-300/80">
-            {attention.badge === "Primary blocker" && <Star className="size-3 fill-current" />}
+            {attention.badge === "Current blocker" && <Star className="size-3 fill-current" />}
             {attention.badge ?? "Needs attention"}
             {openBlockerCount > 1 && ` · +${openBlockerCount - 1} more`}
           </p>
@@ -79,9 +79,7 @@ export function VentureStatusPanel({
         </div>
       ) : (
         <p className="mt-4 text-sm text-muted-foreground">
-          {trajectory === "down"
-            ? "Marked as struggling — log blockers on the Plan tab."
-            : "No notes from the last pulse."}
+          No blocker yet — note what&apos;s in the way on your next pulse, or add one on the Plan tab.
         </p>
       )}
 

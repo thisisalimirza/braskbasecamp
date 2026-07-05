@@ -53,7 +53,7 @@ export default async function PortfolioPage() {
               description={
                 attentionSnippet.badge === "Latest pulse"
                   ? "From your most recent pulse"
-                  : "Your main blocker"
+                  : "Your current blocker"
               }
             >
               <Link href={`/ventures/${topAttention.venture.slug}?tab=plan`} className="group block">

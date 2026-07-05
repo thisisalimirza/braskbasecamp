@@ -99,6 +99,49 @@ export async function updateBlocker(id: string, body: string): Promise<void> {
   });
 }
 
+export async function linkBlockerToCheckin(id: string, checkinId: string): Promise<void> {
+  const db = await getDb();
+  await db.execute({
+    sql: "UPDATE venture_blockers SET source_checkin_id = ? WHERE id = ?",
+    args: [checkinId, id],
+  });
+}
+
+/** Keep one primary blocker in sync with pulse notes — persists until a new note replaces it. */
+export async function syncPrimaryBlockerFromCheckin(input: {
+  ventureId: string;
+  checkinId: string;
+  body: string;
+}): Promise<void> {
+  const trimmed = input.body.trim();
+  if (!trimmed) return;
+
+  const open = await listBlockers(input.ventureId);
+  const fromCheckin = open.find((b) => b.sourceCheckinId === input.checkinId);
+  if (fromCheckin) {
+    if (fromCheckin.body !== trimmed) await updateBlocker(fromCheckin.id, trimmed);
+    if (!fromCheckin.isPrimary) await setPrimaryBlocker(input.ventureId, fromCheckin.id);
+    return;
+  }
+
+  const primary = open.find((b) => b.isPrimary) ?? open[0];
+  if (primary) {
+    if (primary.body !== trimmed) await updateBlocker(primary.id, trimmed);
+    if (primary.sourceCheckinId !== input.checkinId) {
+      await linkBlockerToCheckin(primary.id, input.checkinId);
+    }
+    if (!primary.isPrimary) await setPrimaryBlocker(input.ventureId, primary.id);
+    return;
+  }
+
+  await createBlocker({
+    ventureId: input.ventureId,
+    body: trimmed,
+    makePrimary: true,
+    sourceCheckinId: input.checkinId,
+  });
+}
+
 export async function setPrimaryBlocker(ventureId: string, blockerId: string): Promise<void> {
   const db = await getDb();
   await db.execute({
@@ -139,8 +182,9 @@ export async function ensureBlockerFromLatestCheckin(ventureId: string): Promise
   const open = await listBlockers(ventureId);
   if (open.length > 0) return;
 
-  const latest = await getLatestCheckin(ventureId);
-  if (!latest || latest.trajectory !== "down" || !latest.note?.trim()) return;
+  const { getLatestCheckinWithNote } = await import("./checkins");
+  const latest = await getLatestCheckinWithNote(ventureId);
+  if (!latest?.note?.trim()) return;
 
   await createBlocker({
     ventureId,

@@ -229,7 +229,7 @@ export function VenturePlanPanel({
 
         {openBlockers.length === 0 ? (
           <p className="mt-4 text-sm text-muted-foreground">
-            No open blockers. Add one below or mark a pulse as struggling.
+            No blocker yet. Add one below or note what&apos;s in the way on your next pulse.
           </p>
         ) : (
           <ul className="mt-4 space-y-2">

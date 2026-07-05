@@ -247,12 +247,11 @@ export async function saveWeeklyCheckinAction(
         trajectory: item.trajectory,
         note: item.note,
       });
-      if (item.trajectory === "down" && item.note?.trim()) {
-        await blockers.createBlockerFromCheckin({
+      if (item.note?.trim()) {
+        await blockers.syncPrimaryBlockerFromCheckin({
           ventureId: item.ventureId,
           checkinId,
           body: item.note.trim(),
-          makePrimary: true,
         });
       }
       if (item.kpiUpdates) {
