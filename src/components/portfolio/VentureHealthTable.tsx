@@ -32,7 +32,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { formatCents } from "@/lib/format";
+import { formatCents, daysAgoMs } from "@/lib/format";
 import { TRAJECTORY_LABELS, primaryActionForVenture, planStatusLabel, type VentureAction } from "@/lib/next-actions";
 import { reorderVenturesPriorityAction } from "@/app/actions";
 import { openWeeklyCheckinForVenture } from "@/components/AppShell";
@@ -154,7 +154,8 @@ function VentureRow({
 }) {
   const blockerText = attentionHeadline(row);
   const attentionContext = portfolioAttentionSnippet(row)?.context;
-  const needsAttention = row.trajectory === "down" || row.openBlockerCount > 0 || !!blockerText;
+  const weekCutoff = daysAgoMs(7);
+  const pulseOverdue = !row.lastCheckinAt || row.lastCheckinAt < weekCutoff;
   const action = primaryActionForVenture(row);
 
   const style = sortable
@@ -171,7 +172,7 @@ function VentureRow({
       className={cn(
         "group bg-card transition-colors hover:bg-muted/20",
         sortable?.isDragging && "relative z-10 shadow-lg ring-1 ring-primary/20",
-        needsAttention && "border-l-2 border-l-amber-400/80"
+        pulseOverdue && "border-l-2 border-l-amber-400/80"
       )}
     >
       <td className="w-9 py-4 pl-2 pr-0 align-middle">
