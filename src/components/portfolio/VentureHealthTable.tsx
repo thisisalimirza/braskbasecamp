@@ -209,7 +209,7 @@ function VentureRow({
     isDragging: boolean;
   };
 }) {
-  const needsAttention = row.reasons.length > 0;
+  const needsAttention = row.reasons.length > 0 || row.trajectory === "down";
   const action = primaryActionForVenture(row);
   const blockerText = attentionHeadline(row);
   const attentionContext = portfolioAttentionSnippet(row)?.context;

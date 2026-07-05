@@ -71,8 +71,10 @@ export function collectVentureAttentionReasons(input: {
 }): AttentionReason[] {
   const cutoff = KPI_STALE_MS;
   const reasons: AttentionReason[] = [];
-  if (input.trajectory === "down") reasons.push("trajectory_down");
-  if (!input.lastCheckinAt || input.lastCheckinAt < cutoff) reasons.push("stale_checkin");
+  const pulseStale = !input.lastCheckinAt || input.lastCheckinAt < cutoff;
+  if (pulseStale) {
+    reasons.push(input.trajectory === "down" ? "trajectory_down" : "stale_checkin");
+  }
   if (input.tracksMoney && (!input.lastPnlAt || input.lastPnlAt < cutoff)) {
     reasons.push("stale_pnl");
   }
