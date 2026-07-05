@@ -62,13 +62,6 @@ function planColumnLabel(status: PlanItemStatus): string {
   return PLAN_COLUMNS.find((c) => c.id === status)?.label ?? status;
 }
 
-function blockerSelectLabel(blockerId: string, blockers: VentureBlocker[]): string {
-  if (!blockerId) return "No blocker link";
-  const body = blockers.find((b) => b.id === blockerId)?.body;
-  if (!body) return "No blocker link";
-  return body.length > 56 ? `${body.slice(0, 56)}…` : body;
-}
-
 type ViewMode = "board" | "list";
 
 export function VenturePlanPanel({
@@ -417,7 +410,9 @@ export function VenturePlanPanel({
                 onValueChange={(v) => v && setForm((f) => ({ ...f, status: v as PlanItemStatus }))}
               >
                 <SelectTrigger id="plan-step-status" className="mt-1.5 w-full">
-                  <SelectValue>{planColumnLabel(form.status)}</SelectValue>
+                  <SelectValue>
+                    {(value) => planColumnLabel((value as PlanItemStatus) ?? "backlog")}
+                  </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   {PLAN_COLUMNS.map((c) => (
@@ -445,7 +440,12 @@ export function VenturePlanPanel({
                 >
                   <SelectTrigger id="plan-step-blocker" className="mt-1.5 w-full">
                     <SelectValue>
-                      {blockerSelectLabel(form.blockerId, openBlockers)}
+                      {(value) => {
+                        if (!value || value === NO_BLOCKER_VALUE) return "No blocker link";
+                        const body = openBlockers.find((b) => b.id === value)?.body;
+                        if (!body) return "No blocker link";
+                        return body.length > 56 ? `${body.slice(0, 56)}…` : body;
+                      }}
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
