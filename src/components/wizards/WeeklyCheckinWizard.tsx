@@ -48,9 +48,11 @@ function TrajectoryPicker({ value, onChange }: { value: Trajectory; onChange: (t
 function WeeklyCheckinInner({
   initial,
   onDone,
+  singleVenture,
 }: {
   initial: VentureCheckinDraft[];
   onDone: () => void;
+  singleVenture?: boolean;
 }) {
   const { next, totalSteps } = useWizard();
   const router = useRouter();
@@ -136,7 +138,11 @@ function WeeklyCheckinInner({
             </div>
           </div>
           <Button className="mt-4 w-full" onClick={next}>
-            {idx === items.length - 1 ? "Review everything" : "Next venture"}
+            {items.length === 1
+              ? "Review"
+              : idx === items.length - 1
+                ? "Review everything"
+                : "Next venture"}
           </Button>
         </WizardStep>
       ))}
@@ -168,7 +174,7 @@ function WeeklyCheckinInner({
           ))}
         </ul>
         <Button className="mt-4 w-full" onClick={handleSave} disabled={saving}>
-          {saving ? "Saving…" : "Save pulse"}
+          {saving ? "Saving…" : singleVenture ? "Save pulse" : "Save all pulses"}
         </Button>
       </WizardStep>
     </>
@@ -180,16 +186,23 @@ export function WeeklyCheckinWizard({
   onOpenChange,
   initial,
   title = "Venture pulse",
+  singleVenture = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   initial: VentureCheckinDraft[];
   title?: string;
+  singleVenture?: boolean;
 }) {
   const totalSteps = initial.length + 1;
   return (
     <WizardShell open={open} onOpenChange={onOpenChange} title={title} totalSteps={totalSteps}>
-      <WeeklyCheckinInner key={String(open)} initial={initial} onDone={() => onOpenChange(false)} />
+      <WeeklyCheckinInner
+        key={String(open)}
+        initial={initial}
+        singleVenture={singleVenture}
+        onDone={() => onOpenChange(false)}
+      />
     </WizardShell>
   );
 }

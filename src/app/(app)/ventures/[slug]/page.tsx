@@ -52,7 +52,7 @@ export default async function VenturePage({
   const trendLabels = trend.map((t) => t.month);
 
   return (
-    <div className="space-y-8 pb-4">
+    <div className="space-y-8 pb-28">
       <PageHeader
         eyebrow={
           <Link href="/ventures" className="hover:text-primary">
@@ -93,20 +93,32 @@ export default async function VenturePage({
       </div>
 
       {/* Secondary detail — tabs, not competing with the dashboard */}
-      <Tabs defaultValue="ledger" className="space-y-4">
-        <TabsList className="h-auto w-full justify-start gap-1 rounded-xl bg-muted/50 p-1">
-          <TabsTrigger value="ledger" className="rounded-lg px-4 py-2">
+      <Tabs defaultValue="ledger" className="space-y-5">
+        <TabsList className="h-auto w-full justify-start gap-0.5 rounded-xl border border-border/60 bg-muted/30 p-1">
+          <TabsTrigger
+            value="ledger"
+            className="rounded-lg px-4 py-2 data-active:bg-background data-active:shadow-sm"
+          >
             Money history
           </TabsTrigger>
-          <TabsTrigger value="ritual" className="rounded-lg px-4 py-2">
+          <TabsTrigger
+            value="ritual"
+            className="rounded-lg px-4 py-2 data-active:bg-background data-active:shadow-sm"
+          >
             Past pulses
           </TabsTrigger>
           {isStudio && (
-            <TabsTrigger value="pipeline" className="rounded-lg px-4 py-2">
+            <TabsTrigger
+              value="pipeline"
+              className="rounded-lg px-4 py-2 data-active:bg-background data-active:shadow-sm"
+            >
               Pipeline
             </TabsTrigger>
           )}
-          <TabsTrigger value="reference" className="rounded-lg px-4 py-2">
+          <TabsTrigger
+            value="reference"
+            className="rounded-lg px-4 py-2 data-active:bg-background data-active:shadow-sm"
+          >
             Reference
           </TabsTrigger>
         </TabsList>

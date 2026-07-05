@@ -13,34 +13,41 @@ export type VentureAction = {
   ventureId?: string;
   ventureSlug?: string;
   kind?: "revenue" | "cost";
+  hint?: string;
 };
 
+/** First matching issue wins — same order as collectReasons in venture-health. */
 const REASON_ACTIONS: Record<AttentionReason, (row: VentureHealth) => VentureAction> = {
   trajectory_down: (row) => ({
-    label: "See what's stuck",
-    type: "view_venture",
-    ventureSlug: row.venture.slug,
+    label: "Update pulse",
+    type: "pulse",
+    ventureId: row.venture.id,
+    hint: "Marked as struggling — capture what's blocking progress",
   }),
-  stale_checkin: () => ({
+  stale_checkin: (row) => ({
     label: "Run a pulse",
     type: "pulse",
+    ventureId: row.venture.id,
+    hint: "No fresh pulse in over two weeks",
   }),
   stale_pnl: (row) => ({
     label: "Log money",
     type: "record_revenue",
     ventureId: row.venture.id,
     kind: "revenue",
+    hint: "No money logged recently",
   }),
   new_negative_month: (row) => ({
     label: "Review spending",
     type: "view_venture",
     ventureSlug: row.venture.slug,
+    hint: "Spending more than earning this month",
   }),
 };
 
 export function primaryActionForVenture(row: VentureHealth): VentureAction {
   if (row.reasons.length === 0) {
-    return { label: "Looks good", type: "none" };
+    return { label: "All set", type: "none" };
   }
   return REASON_ACTIONS[row.reasons[0]](row);
 }
@@ -48,11 +55,11 @@ export function primaryActionForVenture(row: VentureHealth): VentureAction {
 export function friendlyActionHint(reason: AttentionReason): string {
   switch (reason) {
     case "trajectory_down":
-      return "Marked as struggling — see what's blocking it";
+      return "Marked as struggling — capture what's blocking progress";
     case "stale_checkin":
-      return "Hasn't had a pulse in a while";
+      return "No fresh pulse in over two weeks";
     case "stale_pnl":
-      return "No money logged recently — worth a quick check";
+      return "No money logged recently";
     case "new_negative_month":
       return "Spending more than earning this month";
   }

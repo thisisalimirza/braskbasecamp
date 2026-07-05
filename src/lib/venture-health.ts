@@ -78,7 +78,7 @@ export async function getVentureHealthSummaries(): Promise<VentureHealth[]> {
         lastCheckinNote: latestCheckin?.note ?? null,
         lastPnlAt,
         reasons,
-        primaryAction: "Looks good",
+        primaryAction: "All set",
       });
     }
   }

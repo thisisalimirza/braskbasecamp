@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Plus, Tent } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { RecordMoneyWizard } from "@/components/wizards/RecordMoneyWizard";
 import { WeeklyCheckinWizard } from "@/components/wizards/WeeklyCheckinWizard";
@@ -13,7 +14,7 @@ import type { Venture } from "@/lib/ventures";
 import type { Category } from "@/lib/categories";
 import type { Client } from "@/lib/clients";
 import type { PortfolioRitualStatus } from "@/lib/ritual-copy";
-import { ritualWizardTitle } from "@/lib/ritual-copy";
+import { ritualWizardTitle, venturePulseWizardTitle } from "@/lib/ritual-copy";
 import { cn } from "@/lib/utils";
 
 type RecordPrefill = { ventureId?: string; clientId?: string; kind?: "revenue" | "cost" | "owner" };
@@ -46,24 +47,54 @@ export function AppShell({
   const [recordOpen, setRecordOpen] = useState(false);
   const [recordPrefill, setRecordPrefill] = useState<RecordPrefill>();
   const [checkinOpen, setCheckinOpen] = useState(false);
+  const [checkinVentureId, setCheckinVentureId] = useState<string | null>(null);
 
-  const openRecordMoney = (prefill?: RecordPrefill) => {
+  const openRecordMoney = useCallback((prefill?: RecordPrefill) => {
     setRecordPrefill(prefill);
     setRecordOpen(true);
+  }, []);
+
+  const openCheckin = useCallback(
+    (ventureId?: string) => {
+      if (ventureId && !checkinDrafts.some((d) => d.venture.id === ventureId)) {
+        toast.error("This venture isn't active — pulse it from the portfolio when ready.");
+        return;
+      }
+      setCheckinVentureId(ventureId ?? null);
+      setCheckinOpen(true);
+    },
+    [checkinDrafts]
+  );
+
+  const handleCheckinOpenChange = (open: boolean) => {
+    setCheckinOpen(open);
+    if (!open) setCheckinVentureId(null);
   };
+
+  const activeCheckinDrafts = checkinVentureId
+    ? checkinDrafts.filter((d) => d.venture.id === checkinVentureId)
+    : checkinDrafts;
+
+  const checkinTitle =
+    checkinVentureId && activeCheckinDrafts[0]
+      ? venturePulseWizardTitle(activeCheckinDrafts[0].venture.name)
+      : ritualWizardTitle(ritual.status);
 
   useEffect(() => {
     const w = window as Window & {
       __openCheckin?: () => void;
+      __openCheckinVenture?: (ventureId: string) => void;
       __openRecordMoney?: (p?: RecordPrefill) => void;
     };
-    w.__openCheckin = () => setCheckinOpen(true);
+    w.__openCheckin = () => openCheckin();
+    w.__openCheckinVenture = (ventureId: string) => openCheckin(ventureId);
     w.__openRecordMoney = openRecordMoney;
     return () => {
       delete w.__openCheckin;
+      delete w.__openCheckinVenture;
       delete w.__openRecordMoney;
     };
-  }, []);
+  }, [openCheckin, openRecordMoney]);
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -125,18 +156,30 @@ export function AppShell({
         prefill={recordPrefill}
       />
 
-      <WeeklyCheckinWizard
-        open={checkinOpen}
-        onOpenChange={setCheckinOpen}
-        initial={checkinDrafts}
-        title={ritualWizardTitle(ritual.status)}
-      />
+      {activeCheckinDrafts.length > 0 && (
+        <WeeklyCheckinWizard
+          key={`${checkinOpen}-${checkinVentureId ?? "portfolio"}`}
+          open={checkinOpen}
+          onOpenChange={handleCheckinOpenChange}
+          initial={activeCheckinDrafts}
+          title={checkinTitle}
+          singleVenture={checkinVentureId != null}
+        />
+      )}
     </div>
   );
 }
 
+/** Full portfolio pulse — all ventures in priority order. */
 export function openWeeklyCheckin() {
   (window as Window & { __openCheckin?: () => void }).__openCheckin?.();
+}
+
+/** Single-venture pulse from a venture page or row action. */
+export function openWeeklyCheckinForVenture(ventureId: string) {
+  (window as Window & { __openCheckinVenture?: (ventureId: string) => void }).__openCheckinVenture?.(
+    ventureId
+  );
 }
 
 export function openRecordMoneyPrefilled(prefill: RecordPrefill) {

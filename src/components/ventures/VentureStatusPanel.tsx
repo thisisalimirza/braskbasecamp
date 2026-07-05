@@ -1,11 +1,10 @@
 "use client";
 
 import { AlertCircle, ClipboardList, TrendingDown, TrendingUp, Minus } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { VentureDashboardCard } from "@/components/ventures/VentureDashboardCard";
 import { formatDate, daysAgoMs } from "@/lib/format";
 import { TRAJECTORY_LABELS } from "@/lib/next-actions";
-import { openWeeklyCheckin, openRecordMoneyPrefilled } from "@/components/AppShell";
+import { openWeeklyCheckinForVenture, openRecordMoneyPrefilled } from "@/components/AppShell";
 import type { Checkin } from "@/lib/checkins";
 import { cn } from "@/lib/utils";
 
@@ -76,27 +75,30 @@ export function VentureStatusPanel({
           <span>
             {latestCheckin
               ? `It's been ${daysSince} days — a quick pulse keeps this venture current.`
-              : "Run a pulse from the portfolio home to capture how this venture is doing."}
+              : "Run a pulse to capture how this venture is doing."}
           </span>
         </div>
       )}
 
       <div className="mt-auto flex flex-wrap gap-2 pt-4">
         {needsPulse && (
-          <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => openWeeklyCheckin()}>
+          <button
+            type="button"
+            className="inline-flex h-9 items-center gap-1.5 rounded-full border border-primary/20 bg-primary/[0.06] px-3.5 text-xs font-medium text-primary transition-all hover:bg-primary/10 active:scale-[0.98]"
+            onClick={() => openWeeklyCheckinForVenture(ventureId)}
+          >
             <ClipboardList className="size-3.5" />
             Run a pulse
-          </Button>
+          </button>
         )}
         {trajectory === "down" && (
-          <Button
+          <button
             type="button"
-            variant="outline"
-            size="sm"
+            className="inline-flex h-9 items-center rounded-full border border-border/80 bg-background px-3.5 text-xs font-medium shadow-sm transition-all hover:bg-muted/60 active:scale-[0.98]"
             onClick={() => openRecordMoneyPrefilled({ ventureId, kind: "cost" })}
           >
             Log spending
-          </Button>
+          </button>
         )}
       </div>
     </VentureDashboardCard>

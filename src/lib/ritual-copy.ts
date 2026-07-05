@@ -74,6 +74,10 @@ export function ritualWizardTitle(status: RitualStatus): string {
   }
 }
 
+export function venturePulseWizardTitle(ventureName: string): string {
+  return `Pulse · ${ventureName}`;
+}
+
 export function portfolioHeaderLine(ritual: PortfolioRitualStatus, attentionCount: number): string {
   if (ritual.status === "overdue" || ritual.status === "due" || ritual.status === "never") {
     return ritualButtonCopy(ritual).hint;

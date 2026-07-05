@@ -66,7 +66,7 @@ export default async function PortfolioPage() {
 
       <SectionCard
         title="How ventures are doing"
-        description="Your priority order — drag rows to reorder. Pulse wizard follows this same order."
+        description="Drag rows to set priority. The next-step button opens the right wizard or venture page."
       >
         <VentureHealthTable summaries={summaries} />
       </SectionCard>

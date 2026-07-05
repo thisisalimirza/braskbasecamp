@@ -2,7 +2,15 @@
 
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
-import { TrendingDown, TrendingUp, Minus, GripVertical } from "lucide-react";
+import {
+  TrendingDown,
+  TrendingUp,
+  Minus,
+  GripVertical,
+  ArrowRight,
+  CircleDollarSign,
+  ClipboardList,
+} from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -21,19 +29,37 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
 import { formatCents, daysAgoMs } from "@/lib/format";
-import { TRAJECTORY_LABELS, primaryActionForVenture } from "@/lib/next-actions";
-import { openWeeklyCheckin, openRecordMoneyPrefilled } from "@/components/AppShell";
+import { TRAJECTORY_LABELS, primaryActionForVenture, type VentureAction } from "@/lib/next-actions";
+import { openWeeklyCheckin, openWeeklyCheckinForVenture, openRecordMoneyPrefilled } from "@/components/AppShell";
 import { reorderVenturesPriorityAction } from "@/app/actions";
 import type { VentureHealth } from "@/lib/venture-health";
 import { cn } from "@/lib/utils";
 
-function TrajectoryIcon({ trajectory }: { trajectory: VentureHealth["trajectory"] }) {
-  if (trajectory === "up") return <TrendingUp className="size-4 text-emerald-600" />;
-  if (trajectory === "down") return <TrendingDown className="size-4 text-red-600" />;
-  if (trajectory === "flat") return <Minus className="size-4 text-stone-500" />;
-  return null;
+function TrajectoryBadge({ trajectory }: { trajectory: VentureHealth["trajectory"] }) {
+  if (!trajectory) {
+    return <span className="text-sm text-muted-foreground">—</span>;
+  }
+
+  const config = {
+    up: { icon: TrendingUp, label: TRAJECTORY_LABELS.up, className: "status-up" },
+    flat: { icon: Minus, label: TRAJECTORY_LABELS.flat, className: "status-flat" },
+    down: { icon: TrendingDown, label: TRAJECTORY_LABELS.down, className: "status-down" },
+  }[trajectory];
+
+  const Icon = config.icon;
+
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium",
+        config.className
+      )}
+    >
+      <Icon className="size-3.5" />
+      {config.label}
+    </span>
+  );
 }
 
 function relativeDays(ms: number | null): string {
@@ -44,46 +70,77 @@ function relativeDays(ms: number | null): string {
   return `${days} days ago`;
 }
 
-function ActionCell({ row }: { row: VentureHealth }) {
-  const action = primaryActionForVenture(row);
-
+function NextAction({ action }: { action: VentureAction }) {
   if (action.type === "none") {
-    return <span className="text-xs text-muted-foreground">{action.label}</span>;
+    return (
+      <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+        <span className="size-1.5 rounded-full bg-emerald-500" aria-hidden />
+        {action.label}
+      </span>
+    );
   }
+
+  const pillClass = cn(
+    "inline-flex h-9 items-center gap-1.5 rounded-full px-3.5 text-xs font-medium whitespace-nowrap",
+    "transition-all duration-150 active:scale-[0.98]",
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+  );
 
   if (action.type === "pulse") {
     return (
-      <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={() => openWeeklyCheckin()}>
+      <button
+        type="button"
+        className={cn(
+          pillClass,
+          "border border-primary/20 bg-primary/[0.06] text-primary hover:border-primary/35 hover:bg-primary/10"
+        )}
+        onClick={() =>
+          action.ventureId
+            ? openWeeklyCheckinForVenture(action.ventureId)
+            : openWeeklyCheckin()
+        }
+        title={action.hint}
+      >
+        <ClipboardList className="size-3.5 shrink-0" />
         {action.label}
-      </Button>
+      </button>
     );
   }
 
   if (action.type === "record_revenue" || action.type === "record_cost") {
     return (
-      <Button
+      <button
         type="button"
-        variant="outline"
-        size="sm"
-        className="h-8 text-xs"
+        className={cn(
+          pillClass,
+          "border border-amber-200/90 bg-amber-50 text-amber-950 hover:bg-amber-100/90",
+          "dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100 dark:hover:bg-amber-950/60"
+        )}
         onClick={() =>
           openRecordMoneyPrefilled({
             ventureId: action.ventureId,
             kind: action.kind ?? "revenue",
           })
         }
+        title={action.hint}
       >
+        <CircleDollarSign className="size-3.5 shrink-0" />
         {action.label}
-      </Button>
+      </button>
     );
   }
 
   return (
     <Link
       href={`/ventures/${action.ventureSlug}`}
-      className="inline-flex h-8 items-center rounded-lg border border-border bg-background px-3 text-xs font-medium shadow-xs transition-colors hover:bg-muted"
+      className={cn(
+        pillClass,
+        "border border-border/80 bg-background text-foreground shadow-sm hover:border-primary/25 hover:bg-muted/60"
+      )}
+      title={action.hint}
     >
       {action.label}
+      <ArrowRight className="size-3.5 shrink-0 opacity-50" />
     </Link>
   );
 }
@@ -101,6 +158,7 @@ function SortableRow({
     id: row.venture.id,
   });
   const needsAttention = row.reasons.length > 0;
+  const action = primaryActionForVenture(row);
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -112,15 +170,15 @@ function SortableRow({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "bg-card transition-colors",
-        isDragging && "relative z-10 shadow-md ring-1 ring-primary/20",
-        needsAttention && "bg-amber-50/50 dark:bg-amber-950/10"
+        "group bg-card transition-colors hover:bg-muted/25",
+        isDragging && "relative z-10 bg-card shadow-lg ring-1 ring-primary/20",
+        needsAttention && "border-l-2 border-l-amber-400/80"
       )}
     >
-      <td className="w-10 py-3.5 pl-1 pr-0">
+      <td className="w-9 py-4 pl-2 pr-0 align-middle">
         <button
           type="button"
-          className="flex size-8 cursor-grab items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground active:cursor-grabbing"
+          className="flex size-8 cursor-grab items-center justify-center rounded-md text-muted-foreground/70 opacity-60 transition-all hover:bg-muted hover:text-foreground hover:opacity-100 group-hover:opacity-100 active:cursor-grabbing"
           aria-label={`Reorder ${row.venture.name}`}
           {...attributes}
           {...listeners}
@@ -128,57 +186,63 @@ function SortableRow({
           <GripVertical className="size-4" />
         </button>
       </td>
-      <td className="w-8 py-3.5 pr-2 text-center text-xs tabular-nums text-muted-foreground">{rank}</td>
-      <td className="py-3.5 pr-4">
+      <td className="w-7 py-4 pr-3 align-middle text-center text-[11px] tabular-nums text-muted-foreground">
+        {rank}
+      </td>
+      <td className="min-w-[140px] py-4 pr-4 align-middle">
         <Link
           href={`/ventures/${row.venture.slug}`}
-          className="font-medium transition-colors hover:text-primary hover:underline"
+          className="font-medium text-foreground transition-colors hover:text-primary"
         >
           {row.venture.name}
         </Link>
         {row.lastCheckinNote && row.trajectory === "down" && (
-          <p className="mt-1 line-clamp-1 text-xs text-red-700 dark:text-red-400">
+          <p className="mt-1 line-clamp-2 text-xs leading-snug text-red-700 dark:text-red-400">
             Stuck on: {row.lastCheckinNote}
           </p>
         )}
       </td>
       <td
         className={cn(
-          "py-3.5 pr-4 tabular-nums font-medium",
+          "py-4 pr-4 align-middle tabular-nums text-[15px] font-semibold",
           row.netCents < 0 && "text-red-700 dark:text-red-400",
-          row.netCents > 0 && "text-emerald-700 dark:text-emerald-400"
+          row.netCents > 0 && "text-emerald-700 dark:text-emerald-400",
+          row.netCents === 0 && "text-muted-foreground"
         )}
       >
         {formatCents(row.netCents)}
       </td>
-      <td className="py-3.5 pr-4">
+      <td className="py-4 pr-4 align-middle">
         {row.trajectory ? (
-          <div className="flex items-center gap-1.5">
-            <TrajectoryIcon trajectory={row.trajectory} />
-            <span className="text-muted-foreground">{TRAJECTORY_LABELS[row.trajectory]}</span>
-          </div>
+          <TrajectoryBadge trajectory={row.trajectory} />
         ) : (
-          <span className="text-muted-foreground">No pulse yet</span>
+          <span className="text-xs text-muted-foreground">No pulse yet</span>
         )}
       </td>
       <td
         className={cn(
-          "py-3.5 pr-4 text-muted-foreground",
-          (!row.lastCheckinAt || row.lastCheckinAt < cutoff) && "font-medium text-amber-700 dark:text-amber-400"
+          "py-4 pr-4 align-middle text-sm",
+          !row.lastCheckinAt || row.lastCheckinAt < cutoff
+            ? "font-medium text-amber-800 dark:text-amber-300"
+            : "text-muted-foreground"
         )}
       >
         {relativeDays(row.lastCheckinAt)}
       </td>
       <td
         className={cn(
-          "py-3.5 pr-4 text-muted-foreground",
-          (!row.lastPnlAt || row.lastPnlAt < cutoff) && "font-medium text-amber-700 dark:text-amber-400"
+          "py-4 pr-4 align-middle text-sm",
+          !row.lastPnlAt || row.lastPnlAt < cutoff
+            ? "font-medium text-amber-800 dark:text-amber-300"
+            : "text-muted-foreground"
         )}
       >
         {relativeDays(row.lastPnlAt)}
       </td>
-      <td className="py-3.5">
-        <ActionCell row={row} />
+      <td className="w-[148px] py-4 pr-3 align-middle">
+        <div className="flex justify-end">
+          <NextAction action={action} />
+        </div>
       </td>
     </tr>
   );
@@ -221,26 +285,23 @@ export function VentureHealthTable({ summaries }: { summaries: VentureHealth[] }
   const ids = rows.map((r) => r.venture.id);
 
   return (
-    <div className={cn("overflow-x-auto", pending && "opacity-80")}>
-      <p className="mb-3 text-xs text-muted-foreground">
-        Drag ventures to set your priority order — top of the list is what you care about most.
-      </p>
+    <div className={cn("overflow-x-auto", pending && "opacity-70")}>
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-        <table className="w-full min-w-[720px] text-sm">
+        <table className="w-full min-w-[760px] border-collapse text-sm">
           <thead>
-            <tr className="border-b text-left text-xs text-muted-foreground">
-              <th className="pb-3 pl-1 pr-0 font-medium" aria-label="Reorder" />
-              <th className="pb-3 pr-2 font-medium">#</th>
-              <th className="pb-3 pr-4 font-medium">Venture</th>
-              <th className="pb-3 pr-4 font-medium">Money this month</th>
-              <th className="pb-3 pr-4 font-medium">How it&apos;s going</th>
-              <th className="pb-3 pr-4 font-medium">Last pulse</th>
-              <th className="pb-3 pr-4 font-medium">Last money logged</th>
-              <th className="pb-3 font-medium">Do this next</th>
+            <tr className="border-b border-border/70 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              <th className="pb-3 pl-2 pr-0" aria-label="Reorder" />
+              <th className="pb-3 pr-3">#</th>
+              <th className="pb-3 pr-4">Venture</th>
+              <th className="pb-3 pr-4">This month</th>
+              <th className="pb-3 pr-4">Momentum</th>
+              <th className="pb-3 pr-4">Last pulse</th>
+              <th className="pb-3 pr-4">Money logged</th>
+              <th className="pb-3 pr-3 text-right">Next step</th>
             </tr>
           </thead>
           <SortableContext items={ids} strategy={verticalListSortingStrategy}>
-            <tbody className="divide-y divide-border/60">
+            <tbody className="divide-y divide-border/50">
               {rows.map((row, index) => (
                 <SortableRow key={row.venture.id} row={row} cutoff={cutoff} rank={index + 1} />
               ))}

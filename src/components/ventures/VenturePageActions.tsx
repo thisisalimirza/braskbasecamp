@@ -2,7 +2,7 @@
 
 import { DollarSign, ClipboardList } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { openRecordMoneyPrefilled, openWeeklyCheckin } from "@/components/AppShell";
+import { openRecordMoneyPrefilled, openWeeklyCheckinForVenture } from "@/components/AppShell";
 
 export function VenturePageActions({ ventureId }: { ventureId: string }) {
   return (
@@ -21,7 +21,7 @@ export function VenturePageActions({ ventureId }: { ventureId: string }) {
         size="sm"
         variant="outline"
         className="gap-1.5"
-        onClick={() => openWeeklyCheckin()}
+        onClick={() => openWeeklyCheckinForVenture(ventureId)}
       >
         <ClipboardList className="size-3.5" />
         Update pulse
