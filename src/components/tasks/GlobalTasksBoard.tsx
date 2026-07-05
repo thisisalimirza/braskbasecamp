@@ -54,6 +54,7 @@ import type { VentureBlocker } from "@/lib/blocker-types";
 import type { KpiDefinition } from "@/lib/kpis";
 import type { Venture } from "@/lib/ventures";
 import { PlanTaskLinks } from "@/components/plan/PlanKpiBadge";
+import { PlanColumnHeader, PlanColumnEmptyHint } from "@/components/plan/PlanColumnHeader";
 import { PlanKpiSelect } from "@/components/plan/PlanKpiSelect";
 import { planStatusLabel } from "@/lib/next-actions";
 import { stepAgingLabel, evaluateWipLimits } from "@/lib/plan-wip";
@@ -121,7 +122,8 @@ export function GlobalTasksBoard({
     const q = search.trim().toLowerCase();
     return items.filter((item) => {
       if (ventureFilter !== ALL_VENTURES && item.ventureId !== ventureFilter) return false;
-      if (statusFilter === "active" && item.status === "done") return false;
+      const doneVisibleOnBoard = view === "board" && showDone;
+      if (statusFilter === "active" && item.status === "done" && !doneVisibleOnBoard) return false;
       if (statusFilter !== "all" && statusFilter !== "active" && item.status !== statusFilter) {
         return false;
       }
@@ -498,7 +500,12 @@ export function GlobalTasksBoard({
         </div>
       ) : view === "board" ? (
         <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-          <div className="flex gap-3 overflow-x-auto pb-4 min-h-[calc(100vh-280px)]">
+          <div
+            className={cn(
+              "grid gap-3 pb-4 sm:grid-cols-2",
+              showDone ? "lg:grid-cols-4" : "lg:grid-cols-3"
+            )}
+          >
             {boardColumns.map((col) => (
               <TaskColumn
                 key={col.id}
@@ -507,6 +514,10 @@ export function GlobalTasksBoard({
                 onEdit={openEdit}
                 onMove={handleMove}
                 onDelete={handleDelete}
+                onAdd={() => {
+                  setAddForm((f) => ({ ...f, status: col.id }));
+                  setAddOpen(true);
+                }}
               />
             ))}
           </div>
@@ -773,12 +784,14 @@ function TaskColumn({
   onEdit,
   onMove,
   onDelete,
+  onAdd,
 }: {
   column: (typeof PLAN_COLUMNS)[number];
   items: GlobalPlanItem[];
   onEdit: (item: GlobalPlanItem) => void;
   onMove: (item: GlobalPlanItem, status: PlanItemStatus) => void;
   onDelete: (item: GlobalPlanItem) => void;
+  onAdd?: () => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
 
@@ -786,31 +799,25 @@ function TaskColumn({
     <div
       ref={setNodeRef}
       className={cn(
-        "flex w-[280px] shrink-0 flex-col rounded-xl bg-muted/35",
-        isOver && "ring-2 ring-primary/30"
+        "flex flex-col rounded-xl border border-border/40 bg-muted/30 transition-colors",
+        isOver && "border-primary/25 bg-accent/30 ring-2 ring-primary/20"
       )}
     >
-      <div className="sticky top-0 z-10 rounded-t-xl border-b border-border/40 bg-muted/50 px-3 py-2.5 backdrop-blur-sm">
-        <div className="flex items-center justify-between">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            {column.label}
-          </p>
-          <span className="rounded-full bg-background px-2 py-0.5 text-[10px] font-medium tabular-nums text-muted-foreground">
-            {items.length}
-          </span>
-        </div>
-        <p className="mt-0.5 text-[10px] text-muted-foreground/80">{column.hint}</p>
-      </div>
-      <div className="flex flex-1 flex-col gap-2 p-2 min-h-[120px]">
-        {items.map((item) => (
-          <DraggableTaskCard
-            key={item.id}
-            item={item}
-            onEdit={onEdit}
-            onMove={onMove}
-            onDelete={onDelete}
-          />
-        ))}
+      <PlanColumnHeader column={column} count={items.length} onAdd={onAdd} />
+      <div className="flex min-h-[220px] flex-1 flex-col gap-2 p-2.5 pt-0">
+        {items.length === 0 ? (
+          <PlanColumnEmptyHint column={column} />
+        ) : (
+          items.map((item) => (
+            <DraggableTaskCard
+              key={item.id}
+              item={item}
+              onEdit={onEdit}
+              onMove={onMove}
+              onDelete={onDelete}
+            />
+          ))
+        )}
       </div>
     </div>
   );
@@ -852,10 +859,12 @@ function TaskCard({
   dragHandleProps?: Record<string, unknown>;
   onEdit?: () => void;
 }) {
+  const aging = stepAgingLabel(item);
+
   return (
     <div
       className={cn(
-        "group rounded-lg border border-border/80 bg-card p-3 shadow-sm transition-shadow hover:shadow-md",
+        "group rounded-xl border border-border/70 bg-card p-3.5 shadow-sm transition-all duration-150 hover:border-primary/25 hover:shadow-md",
         dragging && "shadow-lg ring-1 ring-primary/20",
         dragHandleProps && "cursor-grab active:cursor-grabbing"
       )}
@@ -869,6 +878,11 @@ function TaskCard({
         >
           {item.ventureName}
         </Link>
+        {aging && (
+          <span className="shrink-0 text-[10px] leading-tight text-amber-800/90 dark:text-amber-300/90">
+            {aging}
+          </span>
+        )}
       </div>
       <button
         type="button"

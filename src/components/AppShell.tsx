@@ -189,7 +189,7 @@ export function AppShell({
       <main
         className={cn(
           "mx-auto w-full flex-1 px-4 py-8 sm:px-6",
-          wideLayout ? "max-w-[min(1600px,100%)]" : "max-w-4xl"
+          wideLayout ? "max-w-[min(1240px,100%)]" : "max-w-4xl"
         )}
       >
         {children}

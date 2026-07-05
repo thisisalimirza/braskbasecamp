@@ -17,7 +17,7 @@ export function VentureDashboardCard({
   return (
     <div
       className={cn(
-        "flex min-h-[300px] flex-col rounded-2xl border border-border/80 bg-card p-5 shadow-sm transition-shadow duration-200 hover:shadow-md",
+        "flex min-h-[220px] flex-col rounded-2xl border border-border/80 bg-card p-5 shadow-sm",
         tone === "positive" && "border-emerald-200/70 bg-emerald-50/40 dark:border-emerald-900/40 dark:bg-emerald-950/20",
         tone === "negative" && "border-red-200/70 bg-red-50/40 dark:border-red-900/40 dark:bg-red-950/20",
         className

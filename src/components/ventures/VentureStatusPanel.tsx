@@ -67,8 +67,8 @@ export function VentureStatusPanel({
       </div>
 
       {attention ? (
-        <div className="mt-4 rounded-xl border border-red-200/80 bg-red-50/90 px-4 py-3 text-sm leading-relaxed text-red-950 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-100">
-          <p className="flex items-center gap-1.5 font-mono text-[10px] font-medium uppercase tracking-wider text-red-800/80 dark:text-red-300/80">
+        <div className="mt-4 rounded-xl border border-red-600/10 bg-red-50/60 px-4 py-3 text-sm leading-relaxed text-red-950/85 dark:border-red-400/10 dark:bg-red-950/20 dark:text-red-200/90">
+          <p className="flex items-center gap-1.5 font-mono text-[10px] font-medium uppercase tracking-wider text-red-800/70 dark:text-red-300/80">
             {attention.badge === "Current blocker" && <Star className="size-3 fill-current" />}
             {attention.badge ?? "Needs attention"}
             {openBlockerCount > 1 && ` · +${openBlockerCount - 1} more`}

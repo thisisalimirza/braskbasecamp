@@ -56,6 +56,7 @@ import { PLAN_COLUMNS, type PlanItem, type PlanItemStatus } from "@/lib/plan-typ
 import type { VentureBlocker } from "@/lib/blocker-types";
 import type { KpiDefinition } from "@/lib/kpis";
 import { PlanTaskLinks } from "@/components/plan/PlanKpiBadge";
+import { PlanColumnHeader, PlanColumnEmptyHint } from "@/components/plan/PlanColumnHeader";
 import { PlanKpiSelect } from "@/components/plan/PlanKpiSelect";
 import { KpiDoneDialog } from "@/components/plan/KpiDoneDialog";
 import { PlanItemFocusDialog } from "@/components/plan/PlanItemFocusDialog";
@@ -354,12 +355,12 @@ export function VenturePlanPanel({
                 className={cn(
                   "flex flex-wrap items-start gap-2 rounded-xl border px-4 py-3 text-sm",
                   b.isPrimary
-                    ? "border-red-200/90 bg-red-50/80 dark:border-red-900/50 dark:bg-red-950/30"
+                    ? "border-red-600/10 bg-red-50/60 text-red-950/85 dark:border-red-400/10 dark:bg-red-950/20 dark:text-red-200/90"
                     : "border-border/70 bg-muted/20"
                 )}
               >
                 {b.isPrimary && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-red-800 dark:bg-red-900/40 dark:text-red-200">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-red-100/70 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-red-800/90 dark:bg-red-900/40 dark:text-red-200">
                     <Star className="size-3 fill-current" />
                     Primary
                   </span>
@@ -512,7 +513,7 @@ export function VenturePlanPanel({
           </div>
         ) : view === "board" ? (
           <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-            <div className="mt-5 flex gap-3 overflow-x-auto pb-2">
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               {PLAN_COLUMNS.map((col) => (
                 <PlanColumn
                   key={col.id}
@@ -523,6 +524,10 @@ export function VenturePlanPanel({
                   onMove={handleMove}
                   onDone={handleMarkDone}
                   onEdit={openEdit}
+                  onAdd={() => {
+                    setForm({ title: "", notes: "", status: col.id, blockerId: "", kpiDefinitionId: "" });
+                    setAddOpen(true);
+                  }}
                 />
               ))}
             </div>
@@ -760,6 +765,7 @@ function PlanColumn({
   onMove,
   onDone,
   onEdit,
+  onAdd,
 }: {
   column: (typeof PLAN_COLUMNS)[number];
   items: PlanItem[];
@@ -768,6 +774,7 @@ function PlanColumn({
   onMove: (id: string, status: PlanItemStatus) => void;
   onDone: (item: PlanItem) => void;
   onEdit: (item: PlanItem) => void;
+  onAdd?: () => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
 
@@ -775,28 +782,27 @@ function PlanColumn({
     <div
       ref={setNodeRef}
       className={cn(
-        "min-w-[200px] flex-1 rounded-xl bg-muted/40 p-2 transition-colors",
-        isOver && "ring-2 ring-primary/30"
+        "flex flex-col rounded-xl border border-border/40 bg-muted/30 transition-colors",
+        isOver && "border-primary/25 bg-accent/30 ring-2 ring-primary/20"
       )}
     >
-      <div className="mb-2 px-1">
-        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          {column.label}
-        </p>
-        <p className="text-[10px] text-muted-foreground/80">{column.hint}</p>
-      </div>
-      <div className="space-y-2 min-h-[100px]">
-        {items.map((item) => (
-          <DraggablePlanCard
-            key={item.id}
-            item={item}
-            blockers={blockers}
-            onDelete={onDelete}
-            onMove={onMove}
-            onDone={onDone}
-            onEdit={onEdit}
-          />
-        ))}
+      <PlanColumnHeader column={column} count={items.length} onAdd={onAdd} />
+      <div className="flex min-h-[150px] flex-1 flex-col gap-2 p-2.5 pt-0">
+        {items.length === 0 ? (
+          <PlanColumnEmptyHint column={column} />
+        ) : (
+          items.map((item) => (
+            <DraggablePlanCard
+              key={item.id}
+              item={item}
+              blockers={blockers}
+              onDelete={onDelete}
+              onMove={onMove}
+              onDone={onDone}
+              onEdit={onEdit}
+            />
+          ))
+        )}
       </div>
     </div>
   );
@@ -863,14 +869,14 @@ function PlanCard({
   return (
     <div
       className={cn(
-        "rounded-lg border border-border/80 bg-card p-3 shadow-sm",
+        "group rounded-xl border border-border/70 bg-card p-3.5 shadow-sm transition-all duration-150 hover:border-primary/25 hover:shadow-md",
         dragging && "shadow-lg ring-1 ring-primary/20"
       )}
     >
       <div className={cn(dragHandleProps && "cursor-grab active:cursor-grabbing")} {...dragHandleProps}>
         <div className="flex items-start justify-between gap-2">
           <p className="text-sm font-medium leading-snug">{item.title}</p>
-          {aging && <span className="shrink-0 text-[10px] text-amber-800 dark:text-amber-300">{aging}</span>}
+          {aging && <span className="shrink-0 text-[10px] text-amber-800/90 dark:text-amber-300/90">{aging}</span>}
         </div>
         {item.notes && (
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground line-clamp-2">
@@ -884,7 +890,10 @@ function PlanCard({
         blockerBody={linked?.body ?? null}
       />
       {onMove && onDelete && (
-        <div className="mt-2 flex flex-wrap gap-1" onPointerDown={(e) => e.stopPropagation()}>
+        <div
+          className="mt-2 flex flex-wrap gap-1 opacity-0 transition-opacity duration-150 focus-within:opacity-100 group-hover:opacity-100 max-sm:opacity-100"
+          onPointerDown={(e) => e.stopPropagation()}
+        >
           {onEdit && (
             <Button type="button" variant="ghost" size="sm" className="h-7 text-[11px]" onClick={() => onEdit(item)}>
               <Pencil className="size-3" />
