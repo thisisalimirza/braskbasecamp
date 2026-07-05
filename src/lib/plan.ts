@@ -112,6 +112,32 @@ export async function deletePlanItem(id: string): Promise<void> {
   await db.execute({ sql: "DELETE FROM venture_plan_items WHERE id = ?", args: [id] });
 }
 
+export async function getUpcomingPlanItemsForVentures(
+  ventureIds: string[]
+): Promise<Map<string, PlanItem[]>> {
+  const map = new Map<string, PlanItem[]>();
+  if (ventureIds.length === 0) return map;
+  for (const id of ventureIds) map.set(id, []);
+
+  const db = await getDb();
+  const placeholders = ventureIds.map(() => "?").join(",");
+  const res = await db.execute({
+    sql: `SELECT * FROM venture_plan_items
+          WHERE venture_id IN (${placeholders}) AND status IN ('doing', 'next')
+          ORDER BY venture_id,
+            CASE status WHEN 'doing' THEN 0 ELSE 1 END,
+            sort_order ASC,
+            created_at ASC`,
+    args: ventureIds,
+  });
+
+  for (const row of res.rows) {
+    const item = rowToPlanItem(row as Record<string, unknown>);
+    map.get(item.ventureId)?.push(item);
+  }
+  return map;
+}
+
 export async function getFocusPlanItemsForVentures(
   ventureIds: string[]
 ): Promise<Map<string, PlanItem | null>> {

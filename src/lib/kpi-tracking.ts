@@ -2,6 +2,7 @@ import { daysAgoMs } from "./format";
 import type { KpiWithLatest } from "./kpis";
 import type { Trajectory } from "./checkins";
 import type { AttentionReason } from "./attention";
+import { formatKpiValue } from "./kpi-units";
 
 export const KPI_STALE_MS = daysAgoMs(14);
 
@@ -11,6 +12,35 @@ export function isMoneyKpi(unit: string | null): boolean {
 
 export function ventureTracksMoney(kpis: { unit: string | null }[]): boolean {
   return kpis.some((k) => isMoneyKpi(k.unit));
+}
+
+export type KpiSnapshot = {
+  id: string;
+  name: string;
+  unit: string | null;
+  value: number | null;
+  trend: "up" | "down" | "flat" | null;
+  formattedValue: string;
+};
+
+export function kpiTrend(history: number[]): "up" | "down" | "flat" | null {
+  if (history.length < 2) return null;
+  const prev = history[history.length - 2];
+  const curr = history[history.length - 1];
+  if (curr > prev) return "up";
+  if (curr < prev) return "down";
+  return "flat";
+}
+
+export function buildKpiSnapshots(kpis: KpiWithLatest[]): KpiSnapshot[] {
+  return kpis.map((kpi) => ({
+    id: kpi.id,
+    name: kpi.name,
+    unit: kpi.unit,
+    value: kpi.latestValue,
+    trend: kpiTrend(kpi.history),
+    formattedValue: formatKpiValue(kpi.latestValue, kpi.unit),
+  }));
 }
 
 export type KpiStatusChip = {

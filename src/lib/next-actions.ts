@@ -1,6 +1,6 @@
 import type { AttentionReason } from "./attention";
+import type { PlanItem, PlanItemStatus } from "./plan-types";
 import type { VentureHealth } from "./venture-health";
-import type { PlanItemStatus } from "./plan-types";
 
 export const TRAJECTORY_LABELS = {
   up: "Improving",
@@ -8,66 +8,69 @@ export const TRAJECTORY_LABELS = {
   down: "Struggling",
 } as const;
 
+export type VenturePlanStep = {
+  title: string;
+  status: PlanItemStatus;
+  linkedToBlocker: boolean;
+  otherBlockerLinkedCount: number;
+};
+
 export type VentureAction = {
   label: string;
-  type: "pulse" | "record_revenue" | "record_cost" | "view_venture" | "view_plan" | "none";
-  ventureId?: string;
+  type: "view_plan" | "none";
   ventureSlug?: string;
-  kind?: "revenue" | "cost";
   hint?: string;
+  planStep?: VenturePlanStep | null;
 };
 
-/** First matching issue wins — same order as collectReasons in venture-health. */
-const REASON_ACTIONS: Record<AttentionReason, (row: VentureHealth) => VentureAction> = {
-  trajectory_down: (row) => ({
-    label: "Update pulse",
-    type: "pulse",
-    ventureId: row.venture.id,
-    hint: "Marked as struggling — update momentum and what's blocking",
-  }),
-  stale_checkin: (row) => ({
-    label: "Run a pulse",
-    type: "pulse",
-    ventureId: row.venture.id,
-    hint: "No fresh pulse in over two weeks",
-  }),
-  stale_pnl: (row) => ({
-    label: "Log money",
-    type: "record_revenue",
-    ventureId: row.venture.id,
-    kind: "revenue",
-    hint: "Revenue KPI venture — no money logged in 2+ weeks",
-  }),
-  stale_kpi: (row) => ({
-    label: "Update metrics",
-    type: "pulse",
-    ventureId: row.venture.id,
-    hint: row.staleKpiName
-      ? `${row.staleKpiName} wasn't updated on your last pulse`
-      : "Refresh your key numbers on the next pulse",
-  }),
-  new_negative_month: (row) => ({
-    label: "Review spending",
-    type: "view_venture",
-    ventureSlug: row.venture.slug,
-    hint: "Spending more than earning this month",
-  }),
-};
+function sortPlanItems(a: PlanItem, b: PlanItem): number {
+  const statusOrder: Record<PlanItemStatus, number> = {
+    doing: 0,
+    next: 1,
+    backlog: 2,
+    done: 3,
+  };
+  return statusOrder[a.status] - statusOrder[b.status] || a.sortOrder - b.sortOrder;
+}
+
+/** Pick the headline plan step — blocker-linked items win, then doing over next. */
+export function pickNextPlanStep(items: PlanItem[]): VenturePlanStep | null {
+  const upcoming = items.filter((i) => i.status === "doing" || i.status === "next");
+  if (upcoming.length === 0) return null;
+
+  const blockerLinked = upcoming.filter((i) => i.blockerId).sort(sortPlanItems);
+  const unlinked = upcoming.filter((i) => !i.blockerId).sort(sortPlanItems);
+  const primary = blockerLinked[0] ?? unlinked[0];
+  if (!primary) return null;
+
+  return {
+    title: primary.title,
+    status: primary.status,
+    linkedToBlocker: !!primary.blockerId,
+    otherBlockerLinkedCount: blockerLinked.length > 1 ? blockerLinked.length - 1 : 0,
+  };
+}
 
 export function primaryActionForVenture(row: VentureHealth): VentureAction {
-  if (row.reasons.length === 0) {
-    if (row.focusPlanItem) {
-      const doing = row.focusPlanItem.status === "doing";
-      return {
-        label: doing ? "Continue" : "Start next",
-        type: "view_plan",
-        ventureSlug: row.venture.slug,
-        hint: row.focusPlanItem.title,
-      };
-    }
-    return { label: "All set", type: "none" };
-  }
-  return REASON_ACTIONS[row.reasons[0]](row);
+  const step = row.nextPlanStep;
+  if (!step) return { label: "All set", type: "none" };
+
+  const hint =
+    step.otherBlockerLinkedCount > 0
+      ? `Linked to a blocker · +${step.otherBlockerLinkedCount} more`
+      : step.linkedToBlocker
+        ? "Linked to a blocker"
+        : step.status === "doing"
+          ? "In progress on your plan"
+          : "Up next on your plan";
+
+  return {
+    label: step.title,
+    type: "view_plan",
+    ventureSlug: row.venture.slug,
+    hint,
+    planStep: step,
+  };
 }
 
 export function planStatusLabel(status: PlanItemStatus): string {

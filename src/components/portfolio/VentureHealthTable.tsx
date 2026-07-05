@@ -8,10 +8,9 @@ import {
   Minus,
   GripVertical,
   ArrowRight,
-  CircleDollarSign,
-  ClipboardList,
   Lock,
   Pencil,
+  Link2,
 } from "lucide-react";
 import {
   DndContext,
@@ -32,18 +31,33 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { formatCents, daysAgoMs } from "@/lib/format";
-import { TRAJECTORY_LABELS, primaryActionForVenture, type VentureAction } from "@/lib/next-actions";
-import {
-  openWeeklyCheckin,
-  openWeeklyCheckinForVenture,
-  openRecordMoneyPrefilled,
-} from "@/components/AppShell";
+import { formatCents } from "@/lib/format";
+import { TRAJECTORY_LABELS, primaryActionForVenture, planStatusLabel, type VentureAction } from "@/lib/next-actions";
 import { reorderVenturesPriorityAction } from "@/app/actions";
 import type { VentureHealth } from "@/lib/venture-health";
 import { attentionHeadline, portfolioAttentionSnippet } from "@/lib/venture-display";
 import { MoneyTrendBadge } from "@/components/portfolio/MoneyTrendBadge";
+import type { KpiSnapshot } from "@/lib/kpi-tracking";
 import { cn } from "@/lib/utils";
+
+function KpiTrendIcon({ trend }: { trend: KpiSnapshot["trend"] }) {
+  if (trend === "up") return <TrendingUp className="size-3 text-emerald-600 dark:text-emerald-400" />;
+  if (trend === "down") return <TrendingDown className="size-3 text-red-600 dark:text-red-400" />;
+  if (trend === "flat") return <Minus className="size-3 text-muted-foreground" />;
+  return null;
+}
+
+function KpiSnapshotRow({ kpi }: { kpi: KpiSnapshot }) {
+  return (
+    <div className="flex items-center justify-between gap-3 text-[11px] leading-tight">
+      <span className="truncate text-muted-foreground">{kpi.name}</span>
+      <span className="inline-flex shrink-0 items-center gap-1 font-medium tabular-nums text-foreground">
+        {kpi.formattedValue}
+        <KpiTrendIcon trend={kpi.trend} />
+      </span>
+    </div>
+  );
+}
 
 function TrajectoryBadge({ trajectory }: { trajectory: VentureHealth["trajectory"] }) {
   if (!trajectory) {
@@ -71,35 +85,6 @@ function TrajectoryBadge({ trajectory }: { trajectory: VentureHealth["trajectory
   );
 }
 
-function relativeDays(ms: number | null): string | null {
-  if (!ms) return null;
-  const days = Math.floor((Date.now() - ms) / (24 * 60 * 60 * 1000));
-  if (days === 0) return "Today";
-  if (days === 1) return "Yesterday";
-  return `${days} days ago`;
-}
-
-function StatusChip({
-  label,
-  attention,
-}: {
-  label: string;
-  attention?: boolean;
-}) {
-  return (
-    <span
-      className={cn(
-        "inline-flex max-w-full items-center rounded-full px-2.5 py-1 text-[11px] font-medium leading-tight",
-        attention
-          ? "border border-amber-300/90 bg-amber-100 text-amber-950 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-100"
-          : "bg-muted/60 text-muted-foreground"
-      )}
-    >
-      {label}
-    </span>
-  );
-}
-
 function NextAction({ action }: { action: VentureAction }) {
   if (action.type === "none") {
     return (
@@ -110,94 +95,39 @@ function NextAction({ action }: { action: VentureAction }) {
     );
   }
 
+  const step = action.planStep;
   const pillClass = cn(
-    "inline-flex h-9 items-center gap-1.5 rounded-full px-3.5 text-xs font-medium whitespace-nowrap",
+    "inline-flex min-h-9 max-w-[200px] flex-col items-end justify-center gap-0.5 rounded-xl px-3 py-2 text-right text-xs font-medium",
     "transition-all duration-150 active:scale-[0.98]",
+    "border border-primary/20 bg-primary/[0.06] text-primary hover:border-primary/35 hover:bg-primary/10",
     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
   );
 
-  if (action.type === "pulse") {
-    return (
-      <button
-        type="button"
-        className={cn(
-          pillClass,
-          "border border-primary/20 bg-primary/[0.06] text-primary hover:border-primary/35 hover:bg-primary/10"
-        )}
-        onClick={() =>
-          action.ventureId ? openWeeklyCheckinForVenture(action.ventureId) : openWeeklyCheckin()
-        }
-        title={action.hint}
-      >
-        <ClipboardList className="size-3.5 shrink-0" />
-        {action.label}
-      </button>
-    );
-  }
-
-  if (action.type === "record_revenue" || action.type === "record_cost") {
-    return (
-      <button
-        type="button"
-        className={cn(
-          pillClass,
-          "border border-amber-200/90 bg-amber-50 text-amber-950 hover:bg-amber-100/90",
-          "dark:border-amber-900/50 dark:bg-amber-950/40 dark:text-amber-100"
-        )}
-        onClick={() =>
-          openRecordMoneyPrefilled({
-            ventureId: action.ventureId,
-            kind: action.kind ?? "revenue",
-          })
-        }
-        title={action.hint}
-      >
-        <CircleDollarSign className="size-3.5 shrink-0" />
-        {action.label}
-      </button>
-    );
-  }
-
-  if (action.type === "view_plan" && action.ventureSlug) {
-    return (
-      <Link
-        href={`/ventures/${action.ventureSlug}?tab=plan`}
-        className={cn(
-          pillClass,
-          "border border-primary/20 bg-primary/[0.06] text-primary hover:border-primary/35 hover:bg-primary/10"
-        )}
-        title={action.hint}
-      >
-        {action.label}
-        <ArrowRight className="size-3.5 shrink-0 opacity-50" />
-      </Link>
-    );
-  }
-
   return (
-    <Link
-      href={`/ventures/${action.ventureSlug}`}
-      className={cn(
-        pillClass,
-        "border border-border/80 bg-background text-foreground shadow-sm hover:border-primary/25 hover:bg-muted/60"
+    <Link href={`/ventures/${action.ventureSlug}?tab=plan`} className={pillClass} title={action.hint}>
+      <span className="inline-flex items-center gap-1.5 leading-snug">
+        {step?.linkedToBlocker && <Link2 className="size-3 shrink-0 opacity-70" aria-hidden />}
+        <span className="line-clamp-2">{action.label}</span>
+        <ArrowRight className="size-3.5 shrink-0 opacity-50" />
+      </span>
+      {step && (
+        <span className="text-[10px] font-normal text-muted-foreground">
+          {step.otherBlockerLinkedCount > 0
+            ? `+${step.otherBlockerLinkedCount} more linked to blockers`
+            : planStatusLabel(step.status)}
+        </span>
       )}
-      title={action.hint}
-    >
-      {action.label}
-      <ArrowRight className="size-3.5 shrink-0 opacity-50" />
     </Link>
   );
 }
 
 function VentureRow({
   row,
-  cutoff,
   rank,
   reorderMode,
   sortable,
 }: {
   row: VentureHealth;
-  cutoff: number;
   rank: number;
   reorderMode: boolean;
   sortable?: {
@@ -209,12 +139,10 @@ function VentureRow({
     isDragging: boolean;
   };
 }) {
-  const needsAttention = row.reasons.length > 0 || row.trajectory === "down";
+  const needsAttention = row.trajectory === "down" || row.openBlockerCount > 0;
   const action = primaryActionForVenture(row);
   const blockerText = attentionHeadline(row);
   const attentionContext = portfolioAttentionSnippet(row)?.context;
-  const pulseMissing = !row.lastCheckinAt || row.lastCheckinAt < cutoff;
-  const pulseLabel = relativeDays(row.lastCheckinAt);
 
   const style = sortable
     ? {
@@ -271,14 +199,6 @@ function VentureRow({
             )}
           </p>
         )}
-        {row.focusPlanItem && (
-          <Link
-            href={`/ventures/${row.venture.slug}?tab=plan`}
-            className="mt-1 block text-xs text-muted-foreground hover:text-primary"
-          >
-            Next: {row.focusPlanItem.title} →
-          </Link>
-        )}
       </td>
       <td className="py-4 pr-4 align-middle">
         <div className="flex items-center gap-2">
@@ -302,25 +222,18 @@ function VentureRow({
           <span className="text-xs text-muted-foreground">—</span>
         )}
       </td>
-      <td className="py-4 pr-4 align-middle">
-        <div className="flex flex-col gap-1.5">
-          <StatusChip
-            label={pulseLabel ? `Pulse · ${pulseLabel}` : "Pulse · missing"}
-            attention={pulseMissing}
-          />
-          {row.kpiStatuses.map((kpi) => {
-            const when = relativeDays(kpi.lastAt);
-            return (
-              <StatusChip
-                key={kpi.id}
-                label={when ? `${kpi.name} · ${when}` : `${kpi.name} · not updated`}
-                attention={kpi.stale}
-              />
-            );
-          })}
-        </div>
+      <td className="min-w-[148px] py-4 pr-4 align-middle">
+        {row.kpiSnapshots.length > 0 ? (
+          <div className="flex flex-col gap-1.5">
+            {row.kpiSnapshots.map((kpi) => (
+              <KpiSnapshotRow key={kpi.id} kpi={kpi} />
+            ))}
+          </div>
+        ) : (
+          <span className="text-xs text-muted-foreground">No KPIs</span>
+        )}
       </td>
-      <td className="w-[148px] py-4 pr-3 align-middle">
+      <td className="w-[180px] py-4 pr-3 align-middle">
         <div className="flex justify-end">
           <NextAction action={action} />
         </div>
@@ -335,7 +248,6 @@ function SortableVentureRow(props: Omit<ComponentProps<typeof VentureRow>, "sort
 }
 
 export function VentureHealthTable({ summaries }: { summaries: VentureHealth[] }) {
-  const cutoff = daysAgoMs(14);
   const [rows, setRows] = useState(summaries);
   const [reorderMode, setReorderMode] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -381,7 +293,6 @@ export function VentureHealthTable({ summaries }: { summaries: VentureHealth[] }
           <SortableVentureRow
             key={row.venture.id}
             row={row}
-            cutoff={cutoff}
             rank={index + 1}
             reorderMode
           />
@@ -389,7 +300,6 @@ export function VentureHealthTable({ summaries }: { summaries: VentureHealth[] }
           <VentureRow
             key={row.venture.id}
             row={row}
-            cutoff={cutoff}
             rank={index + 1}
             reorderMode={false}
           />
@@ -404,7 +314,7 @@ export function VentureHealthTable({ summaries }: { summaries: VentureHealth[] }
         <p className="text-xs text-muted-foreground">
           {reorderMode
             ? "Drag ventures into priority order, then tap Done."
-            : "Status shows pulse & KPI timing. Use Next step for the one action to take."}
+            : "KPIs show latest values. Next step pulls from your plan — blocker-linked steps first."}
         </p>
         <Button
           type="button"
@@ -437,7 +347,7 @@ export function VentureHealthTable({ summaries }: { summaries: VentureHealth[] }
                   <th className="pb-3 pr-4">Venture</th>
                   <th className="pb-3 pr-4">This month</th>
                   <th className="pb-3 pr-4">Momentum</th>
-                  <th className="pb-3 pr-4">Status</th>
+                  <th className="pb-3 pr-4">KPIs</th>
                   <th className="pb-3 pr-3 text-right">Next step</th>
                 </tr>
               </thead>
@@ -454,7 +364,7 @@ export function VentureHealthTable({ summaries }: { summaries: VentureHealth[] }
                 <th className="pb-3 pr-4">Venture</th>
                 <th className="pb-3 pr-4">This month</th>
                 <th className="pb-3 pr-4">Momentum</th>
-                <th className="pb-3 pr-4">Status</th>
+                <th className="pb-3 pr-4">KPIs</th>
                 <th className="pb-3 pr-3 text-right">Next step</th>
               </tr>
             </thead>

@@ -3,16 +3,19 @@ import { getLatestCheckin } from "./checkins";
 import { lastPnlEntryDate, ventureNetThisMonth } from "./pnl";
 import type { Trajectory } from "./checkins";
 import type { AttentionReason } from "./attention";
-import { primaryActionForVenture } from "./next-actions";
+import { pickNextPlanStep, primaryActionForVenture } from "./next-actions";
+import type { VenturePlanStep } from "./next-actions";
 import { getPrimaryBlockersForVentures, countOpenBlockersForVentures } from "./blockers";
-import { getFocusPlanItemsForVentures } from "./plan";
+import { getFocusPlanItemsForVentures, getUpcomingPlanItemsForVentures } from "./plan";
 import type { PlanItemStatus } from "./plan-types";
 import { getKpisWithLatest } from "./kpis";
 import {
+  buildKpiSnapshots,
   buildKpiStatuses,
   collectVentureAttentionReasons,
   firstStaleNonMoneyKpi,
   ventureTracksMoney,
+  type KpiSnapshot,
   type KpiStatusChip,
 } from "./kpi-tracking";
 
@@ -25,6 +28,7 @@ export type VentureHealth = {
   lastCheckinNote: string | null;
   lastPnlAt: number | null;
   tracksMoney: boolean;
+  kpiSnapshots: KpiSnapshot[];
   kpiStatuses: KpiStatusChip[];
   staleKpiName: string | null;
   reasons: AttentionReason[];
@@ -32,6 +36,7 @@ export type VentureHealth = {
   primaryBlocker: { id: string; body: string } | null;
   openBlockerCount: number;
   focusPlanItem: { id: string; title: string; status: PlanItemStatus } | null;
+  nextPlanStep: VenturePlanStep | null;
 };
 
 export async function getVentureHealthSummaries(): Promise<VentureHealth[]> {
@@ -39,10 +44,11 @@ export async function getVentureHealthSummaries(): Promise<VentureHealth[]> {
   const ventureIds = ventures.map((v) => v.id);
   const { ventureNetLastMonth } = await import("./pnl");
 
-  const [primaryBlockers, blockerCounts, focusPlans] = await Promise.all([
+  const [primaryBlockers, blockerCounts, focusPlans, upcomingPlans] = await Promise.all([
     getPrimaryBlockersForVentures(ventureIds),
     countOpenBlockersForVentures(ventureIds),
     getFocusPlanItemsForVentures(ventureIds),
+    getUpcomingPlanItemsForVentures(ventureIds),
   ]);
 
   const summaries: VentureHealth[] = [];
@@ -57,8 +63,11 @@ export async function getVentureHealthSummaries(): Promise<VentureHealth[]> {
     ]);
 
     const tracksMoney = ventureTracksMoney(kpis);
+    const kpiSnapshots = buildKpiSnapshots(kpis);
     const kpiStatuses = buildKpiStatuses(kpis, lastPnlAt);
     const staleKpi = firstStaleNonMoneyKpi(kpis, lastPnlAt);
+    const planItems = upcomingPlans.get(venture.id) ?? [];
+    const nextPlanStep = pickNextPlanStep(planItems);
 
     const reasons = collectVentureAttentionReasons({
       trajectory: latestCheckin?.trajectory ?? null,
@@ -82,6 +91,7 @@ export async function getVentureHealthSummaries(): Promise<VentureHealth[]> {
       lastCheckinNote: latestCheckin?.note ?? null,
       lastPnlAt,
       tracksMoney,
+      kpiSnapshots,
       kpiStatuses,
       staleKpiName: staleKpi?.name ?? null,
       reasons,
@@ -91,6 +101,7 @@ export async function getVentureHealthSummaries(): Promise<VentureHealth[]> {
       focusPlanItem: focus
         ? { id: focus.id, title: focus.title, status: focus.status }
         : null,
+      nextPlanStep,
     };
 
     summaries.push({
