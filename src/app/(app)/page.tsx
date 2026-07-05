@@ -70,7 +70,7 @@ export default async function PortfolioPage() {
                     {attentionSnippet.badge}
                   </p>
                 )}
-                <p className="mt-1 text-sm leading-relaxed text-red-800 dark:text-red-300">
+                <p className="mt-1 text-sm leading-relaxed text-red-950/80 dark:text-red-200/85">
                   {attentionSnippet.headline}
                 </p>
                 {attentionSnippet.context && (

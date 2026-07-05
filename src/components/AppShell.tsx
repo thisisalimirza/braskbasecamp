@@ -195,6 +195,10 @@ export function AppShell({
         {children}
       </main>
 
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-30 h-24 bg-gradient-to-t from-background via-background/60 to-transparent"
+      />
       <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center gap-2 pb-6">
         {pulseDue ? (
           <>

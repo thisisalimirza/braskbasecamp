@@ -20,7 +20,7 @@ export function AttentionChips({
         <span
           key={chip.label}
           className={cn(
-            "inline-flex max-w-full items-center rounded-md border px-1.5 py-0.5 text-[10px] leading-tight",
+            "inline-flex max-w-full items-center rounded-full border px-2 py-0.5 text-[10px] font-medium leading-tight",
             attentionChipClass(chip.tone)
           )}
         >

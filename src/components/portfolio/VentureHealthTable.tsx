@@ -13,6 +13,8 @@ import {
   Link2,
   ClipboardList,
   BarChart3,
+  OctagonAlert,
+  Plus,
 } from "lucide-react";
 import {
   DndContext,
@@ -44,22 +46,30 @@ import { AttentionChips } from "@/components/portfolio/AttentionChips";
 import type { KpiSnapshot } from "@/lib/kpi-tracking";
 import { cn } from "@/lib/utils";
 
+/** Shared column template so the header legend and every row stay aligned. */
+const ROW_GRID =
+  "grid grid-cols-[2.25rem_minmax(0,1fr)_5.5rem_7.25rem_12.75rem] items-start gap-x-4 sm:gap-x-5";
+
 function KpiTrendIcon({ trend }: { trend: KpiSnapshot["trend"] }) {
-  if (trend === "up") return <TrendingUp className="size-3 text-emerald-600 dark:text-emerald-400" />;
-  if (trend === "down") return <TrendingDown className="size-3 text-red-600 dark:text-red-400" />;
-  if (trend === "flat") return <Minus className="size-3 text-muted-foreground" />;
+  if (trend === "up") return <TrendingUp className="size-3 text-emerald-600/80 dark:text-emerald-400/80" />;
+  if (trend === "down") return <TrendingDown className="size-3 text-red-500/80 dark:text-red-400/80" />;
+  if (trend === "flat") return <Minus className="size-3 text-muted-foreground/60" />;
   return null;
 }
 
-function KpiSnapshotRow({ kpi }: { kpi: KpiSnapshot }) {
+function KpiInlineList({ kpis }: { kpis: KpiSnapshot[] }) {
+  if (kpis.length === 0) return null;
   return (
-    <div className="inline-flex max-w-full items-center gap-1 text-[11px] leading-tight">
-      <span className="shrink-0 text-muted-foreground">{kpi.name}</span>
-      <span className="shrink-0 text-muted-foreground/40">·</span>
-      <span className="inline-flex min-w-0 items-center gap-0.5 font-medium tabular-nums text-foreground">
-        {kpi.formattedValue}
-        <KpiTrendIcon trend={kpi.trend} />
-      </span>
+    <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs leading-tight">
+      {kpis.map((kpi) => (
+        <span key={kpi.id} className="inline-flex items-center gap-1.5">
+          <span className="text-muted-foreground/75">{kpi.name}</span>
+          <span className="inline-flex items-center gap-0.5 font-medium tabular-nums text-foreground/90">
+            {kpi.formattedValue}
+            <KpiTrendIcon trend={kpi.trend} />
+          </span>
+        </span>
+      ))}
     </div>
   );
 }
@@ -76,7 +86,7 @@ function formatPulseRecency(ms: number | null): string {
 
 function TrajectoryBadge({ trajectory }: { trajectory: VentureHealth["trajectory"] }) {
   if (!trajectory) {
-    return <span className="text-xs text-muted-foreground">—</span>;
+    return <span className="text-xs text-muted-foreground/60">—</span>;
   }
 
   const config = {
@@ -90,7 +100,7 @@ function TrajectoryBadge({ trajectory }: { trajectory: VentureHealth["trajectory
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium",
+        "inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium",
         config.className
       )}
     >
@@ -103,36 +113,48 @@ function TrajectoryBadge({ trajectory }: { trajectory: VentureHealth["trajectory
 function NextAction({ action }: { action: VentureAction }) {
   const step = action.planStep;
   const isUnset = !step;
-  const pillClass = cn(
-    "inline-flex min-h-9 max-w-[min(100%,280px)] flex-col items-end justify-center gap-0.5 rounded-xl px-3 py-2 text-right text-xs font-medium sm:max-w-[240px]",
-    "transition-all duration-150 active:scale-[0.98]",
-    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-    isUnset
-      ? "border border-dashed border-muted-foreground/35 bg-muted/20 text-muted-foreground hover:border-primary/30 hover:text-primary"
-      : "border border-primary/20 bg-primary/[0.06] text-primary hover:border-primary/35 hover:bg-primary/10"
-  );
+
+  const subtext = isUnset
+    ? "Add one on the plan"
+    : step.otherBlockerLinkedCount > 0
+      ? `+${step.otherBlockerLinkedCount} more linked to blockers`
+      : step.linkedToKpi && step.kpiName
+        ? `Moves ${step.kpiName}`
+        : planStatusLabel(step.status);
 
   return (
-    <Link href={`/ventures/${action.ventureSlug}?tab=plan`} className={pillClass} title={action.hint}>
-      <span className="inline-flex items-center gap-1.5 leading-snug">
-        {step?.linkedToKpi && step.kpiName && (
+    <Link
+      href={`/ventures/${action.ventureSlug}?tab=plan`}
+      title={action.hint}
+      className={cn(
+        "group/step flex w-full flex-col gap-1 rounded-xl px-3.5 py-2.5 text-left text-xs",
+        "transition-all duration-150 active:scale-[0.99]",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+        isUnset
+          ? "border border-dashed border-border text-muted-foreground hover:border-primary/40 hover:bg-primary/[0.03] hover:text-foreground"
+          : "border border-primary/15 bg-primary/[0.05] hover:border-primary/30 hover:bg-primary/[0.09]"
+      )}
+    >
+      <span className="flex items-start justify-between gap-2">
+        <span className={cn("line-clamp-2 font-medium leading-snug", !isUnset && "text-primary")}>
+          {isUnset ? "Set next step" : action.label}
+        </span>
+        {isUnset ? (
+          <Plus className="mt-px size-3.5 shrink-0 opacity-60" aria-hidden />
+        ) : (
+          <ArrowRight
+            className="mt-px size-3.5 shrink-0 text-primary/50 transition-transform duration-150 group-hover/step:translate-x-0.5"
+            aria-hidden
+          />
+        )}
+      </span>
+      <span className="flex items-center gap-1 text-[11px] leading-tight text-muted-foreground">
+        {step?.linkedToBlocker && <Link2 className="size-3 shrink-0 opacity-70" aria-hidden />}
+        {step?.linkedToKpi && step.kpiName && !step.linkedToBlocker && (
           <BarChart3 className="size-3 shrink-0 opacity-70" aria-hidden />
         )}
-        {step?.linkedToBlocker && <Link2 className="size-3 shrink-0 opacity-70" aria-hidden />}
-        <span className="line-clamp-2">{action.label}</span>
-        <ArrowRight className="size-3.5 shrink-0 opacity-50" />
+        {subtext}
       </span>
-      {(step || isUnset) && (
-        <span className="text-[10px] font-normal text-muted-foreground">
-          {isUnset
-            ? action.hint
-            : step!.otherBlockerLinkedCount > 0
-              ? `+${step!.otherBlockerLinkedCount} more linked to blockers`
-              : step!.linkedToKpi && step!.kpiName
-                ? `Moves ${step!.kpiName}`
-                : planStatusLabel(step!.status)}
-        </span>
-      )}
     </Link>
   );
 }
@@ -169,16 +191,16 @@ function VentureRow({
     : undefined;
 
   return (
-    <tr
+    <div
       ref={sortable?.setNodeRef}
       style={style}
       className={cn(
-        "group bg-card transition-colors hover:bg-muted/20",
-        sortable?.isDragging && "relative z-10 shadow-lg ring-1 ring-primary/20",
-        pulseOverdue && "border-l-2 border-l-amber-400/80"
+        ROW_GRID,
+        "group rounded-lg bg-card py-5 transition-colors hover:bg-accent/20",
+        sortable?.isDragging && "relative z-10 shadow-lg ring-1 ring-primary/20"
       )}
     >
-      <td className="w-9 py-4 pl-2 pr-0 align-middle">
+      <div className="pl-1">
         {reorderMode && sortable ? (
           <button
             type="button"
@@ -190,96 +212,84 @@ function VentureRow({
             <GripVertical className="size-4" />
           </button>
         ) : (
-          <span className="flex size-8 items-center justify-center text-[11px] tabular-nums text-muted-foreground">
+          <span className="flex size-7 items-center justify-center rounded-full bg-muted/60 text-[11px] font-medium tabular-nums text-muted-foreground">
             {rank}
           </span>
         )}
-      </td>
-      <td className="min-w-[160px] py-4 pr-4 align-middle">
-        <div className="flex items-start gap-2">
-          <div className="min-w-0 flex-1">
-            <Link
-              href={`/ventures/${row.venture.slug}`}
-              className="font-medium text-foreground transition-colors hover:text-primary"
-            >
-              {row.venture.name}
-            </Link>
-            <p className="mt-0.5 text-[10px] leading-none text-muted-foreground/65">
-              {formatPulseRecency(row.lastCheckinAt)}
-            </p>
-            <AttentionChips row={row} className="mt-1.5" max={2} />
-            {blockerText && (
-              <p
-                className="mt-1.5 line-clamp-2 text-xs leading-snug text-red-700 dark:text-red-400"
-                title={attentionContext ?? undefined}
-              >
-                Blocker: {blockerText}
-                {row.openBlockerCount > 1 && (
-                  <span className="text-muted-foreground"> · +{row.openBlockerCount - 1} more</span>
-                )}
-              </p>
-            )}
-          </div>
+      </div>
+
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+          <Link
+            href={`/ventures/${row.venture.slug}`}
+            className="text-sm font-semibold text-foreground transition-colors hover:text-primary"
+          >
+            {row.venture.name}
+          </Link>
+          <span className="inline-flex items-center gap-1.5 text-[11px] leading-none text-muted-foreground/75">
+            <span
+              className={cn(
+                "size-1.5 shrink-0 rounded-full",
+                pulseOverdue ? "bg-amber-400/90" : "bg-emerald-400/80"
+              )}
+              title={pulseOverdue ? "Pulse overdue" : "Pulse is fresh"}
+            />
+            {formatPulseRecency(row.lastCheckinAt)}
+          </span>
           {!reorderMode && (
             <button
               type="button"
               onClick={() => openWeeklyCheckinForVenture(row.venture.id)}
               className={cn(
-                "mt-0.5 shrink-0 rounded-lg border border-primary/20 bg-background px-2.5 py-1.5 text-[11px] font-medium text-primary shadow-sm",
-                "opacity-0 translate-y-0.5 transition-all duration-150",
-                "hover:border-primary/35 hover:bg-primary/[0.06] active:scale-[0.98]",
-                "group-hover:opacity-100 group-hover:translate-y-0 max-sm:opacity-100 max-sm:translate-y-0",
-                "focus-visible:opacity-100 focus-visible:translate-y-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                "inline-flex items-center gap-1 whitespace-nowrap rounded-md px-1.5 py-0.5 text-[11px] font-medium text-primary",
+                "opacity-0 transition-opacity duration-150",
+                "hover:bg-primary/[0.08] group-hover:opacity-100 max-sm:opacity-100",
+                "focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               )}
               title="Run a pulse for this venture"
             >
-              <span className="inline-flex items-center gap-1 whitespace-nowrap">
-                <ClipboardList className="size-3" />
-                Pulse
-              </span>
+              <ClipboardList className="size-3" />
+              Pulse
             </button>
           )}
         </div>
-      </td>
-      <td className="py-4 pr-4 align-middle">
-        <div className="flex items-center gap-2">
-          <span
-            className={cn(
-              "tabular-nums text-[15px] font-semibold",
-              row.netCents < 0 && "text-red-700 dark:text-red-400",
-              row.netCents > 0 && "text-emerald-700 dark:text-emerald-400",
-              row.netCents === 0 && "text-muted-foreground"
-            )}
-          >
-            {formatCents(row.netCents)}
-          </span>
-          <MoneyTrendBadge netCents={row.netCents} netLastMonthCents={row.netLastMonthCents} />
-        </div>
-      </td>
-      <td className="py-4 pr-4 align-middle">
-        {row.trajectory ? (
-          <TrajectoryBadge trajectory={row.trajectory} />
-        ) : (
-          <span className="text-xs text-muted-foreground">—</span>
-        )}
-      </td>
-      <td className="max-w-[200px] py-4 pr-4 align-middle">
-        {row.kpiSnapshots.length > 0 ? (
-          <div className="flex flex-col items-start gap-1">
-            {row.kpiSnapshots.map((kpi) => (
-              <KpiSnapshotRow key={kpi.id} kpi={kpi} />
-            ))}
+        <KpiInlineList kpis={row.kpiSnapshots} />
+        <AttentionChips row={row} className="mt-2" max={2} />
+        {blockerText && (
+          <div className="blocker-note mt-2" title={attentionContext ?? undefined}>
+            <OctagonAlert className="mt-0.5 size-3.5 shrink-0 text-red-400 dark:text-red-300/70" aria-hidden />
+            <span className="line-clamp-2 min-w-0">
+              {blockerText}
+              {row.openBlockerCount > 1 && (
+                <span className="opacity-60"> · +{row.openBlockerCount - 1} more</span>
+              )}
+            </span>
           </div>
-        ) : (
-          <span className="text-xs text-muted-foreground">No KPIs</span>
         )}
-      </td>
-      <td className="w-[180px] py-4 pr-3 align-middle">
-        <div className="flex justify-end">
-          <NextAction action={action} />
-        </div>
-      </td>
-    </tr>
+      </div>
+
+      <div className="flex items-center justify-end gap-1.5 pt-0.5">
+        <span
+          className={cn(
+            "tabular-nums text-[15px] font-semibold leading-none",
+            row.netCents < 0 && "text-red-700 dark:text-red-400",
+            row.netCents > 0 && "text-emerald-700 dark:text-emerald-400",
+            row.netCents === 0 && "text-muted-foreground/70"
+          )}
+        >
+          {formatCents(row.netCents)}
+        </span>
+        <MoneyTrendBadge netCents={row.netCents} netLastMonthCents={row.netLastMonthCents} />
+      </div>
+
+      <div>
+        <TrajectoryBadge trajectory={row.trajectory} />
+      </div>
+
+      <div className="pr-1">
+        <NextAction action={action} />
+      </div>
+    </div>
   );
 }
 
@@ -327,41 +337,42 @@ export function VentureHealthTable({ summaries }: { summaries: VentureHealth[] }
 
   const ids = rows.map((r) => r.venture.id);
 
-  const tableBody = (
-    <tbody className="divide-y divide-border/50">
-      {rows.map((row, index) =>
-        reorderMode ? (
-          <SortableVentureRow
-            key={row.venture.id}
-            row={row}
-            rank={index + 1}
-            reorderMode
-          />
-        ) : (
-          <VentureRow
-            key={row.venture.id}
-            row={row}
-            rank={index + 1}
-            reorderMode={false}
-          />
-        )
+  const rowElements = rows.map((row, index) =>
+    reorderMode ? (
+      <SortableVentureRow key={row.venture.id} row={row} rank={index + 1} reorderMode />
+    ) : (
+      <VentureRow key={row.venture.id} row={row} rank={index + 1} reorderMode={false} />
+    )
+  );
+
+  const legend = (
+    <div
+      className={cn(
+        ROW_GRID,
+        "border-b border-border/60 pb-2.5 text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground/70"
       )}
-    </tbody>
+    >
+      <span aria-hidden />
+      <span>Venture</span>
+      <span className="whitespace-nowrap text-right">This month</span>
+      <span>Momentum</span>
+      <span className="pr-1">Next step</span>
+    </div>
   );
 
   return (
-    <div className={cn("space-y-3", pending && "opacity-70")}>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs text-muted-foreground">
-          {reorderMode
-            ? "Drag ventures into priority order, then tap Done."
-            : "KPIs show latest values. Next step pulls from your plan — blocker-linked steps first."}
-        </p>
+    <div className={cn("space-y-1", pending && "opacity-70")}>
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {reorderMode && (
+          <p className="mr-auto text-xs text-muted-foreground">
+            Drag ventures into priority order, then tap Done.
+          </p>
+        )}
         <Button
           type="button"
-          variant={reorderMode ? "default" : "outline"}
+          variant={reorderMode ? "default" : "ghost"}
           size="sm"
-          className="gap-1.5"
+          className={cn("gap-1.5", !reorderMode && "text-muted-foreground hover:text-foreground")}
           onClick={() => setReorderMode(!reorderMode)}
         >
           {reorderMode ? (
@@ -372,46 +383,25 @@ export function VentureHealthTable({ summaries }: { summaries: VentureHealth[] }
           ) : (
             <>
               <Pencil className="size-3.5" />
-              Reorder priorities
+              Reorder
             </>
           )}
         </Button>
       </div>
 
       <div className="overflow-x-auto">
-        {reorderMode ? (
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <table className="w-full min-w-[720px] border-collapse text-sm">
-              <thead>
-                <tr className="border-b border-border/70 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                  <th className="pb-3 pl-2 pr-0" aria-label="Reorder" />
-                  <th className="pb-3 pr-4">Venture</th>
-                  <th className="pb-3 pr-4">This month</th>
-                  <th className="pb-3 pr-4">Momentum</th>
-                  <th className="pb-3 pr-4">KPIs</th>
-                  <th className="pb-3 pr-3 text-right">Next step</th>
-                </tr>
-              </thead>
+        <div className="min-w-[720px]">
+          {legend}
+          {reorderMode ? (
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
               <SortableContext items={ids} strategy={verticalListSortingStrategy}>
-                {tableBody}
+                <div className="divide-y divide-border/40">{rowElements}</div>
               </SortableContext>
-            </table>
-          </DndContext>
-        ) : (
-          <table className="w-full min-w-[720px] border-collapse text-sm">
-            <thead>
-              <tr className="border-b border-border/70 text-left text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                <th className="pb-3 pl-2 pr-0 w-9">#</th>
-                <th className="pb-3 pr-4">Venture</th>
-                <th className="pb-3 pr-4">This month</th>
-                <th className="pb-3 pr-4">Momentum</th>
-                <th className="pb-3 pr-4">KPIs</th>
-                <th className="pb-3 pr-3 text-right">Next step</th>
-              </tr>
-            </thead>
-            {tableBody}
-          </table>
-        )}
+            </DndContext>
+          ) : (
+            <div className="divide-y divide-border/40">{rowElements}</div>
+          )}
+        </div>
       </div>
     </div>
   );

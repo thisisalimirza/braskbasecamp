@@ -37,9 +37,9 @@ export function PlanTaskLinks({
     <div className={cn("flex flex-col gap-1.5", className)}>
       {kpiName && <PlanKpiBadge name={kpiName} />}
       {blockerBody && (
-        <p className="flex items-start gap-1 text-[11px] text-amber-800 dark:text-amber-300">
-          <Link2 className="mt-0.5 size-3 shrink-0" />
-          <span className="line-clamp-2">{blockerBody}</span>
+        <p className="flex items-start gap-1.5 text-[11px] leading-relaxed text-red-950/70 dark:text-red-200/70">
+          <Link2 className="mt-0.5 size-3 shrink-0 opacity-70" />
+          <span className="line-clamp-2">Unblocks: {blockerBody}</span>
         </p>
       )}
     </div>
