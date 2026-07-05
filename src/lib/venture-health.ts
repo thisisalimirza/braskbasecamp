@@ -9,6 +9,7 @@ import { primaryActionForVenture } from "./next-actions";
 export type VentureHealth = {
   venture: Venture;
   netCents: number;
+  netLastMonthCents: number;
   trajectory: Trajectory | null;
   lastCheckinAt: number | null;
   lastCheckinNote: string | null;
@@ -58,6 +59,7 @@ export async function getVentureHealthSummaries(): Promise<VentureHealth[]> {
       const row = {
         venture,
         netCents,
+        netLastMonthCents: netLastMonth,
         trajectory: latestCheckin?.trajectory ?? null,
         lastCheckinAt: latestCheckin?.checkedAt ?? null,
         lastCheckinNote: latestCheckin?.note ?? null,
@@ -73,6 +75,7 @@ export async function getVentureHealthSummaries(): Promise<VentureHealth[]> {
       summaries.push({
         venture,
         netCents,
+        netLastMonthCents: netLastMonth,
         trajectory: latestCheckin?.trajectory ?? null,
         lastCheckinAt: latestCheckin?.checkedAt ?? null,
         lastCheckinNote: latestCheckin?.note ?? null,

@@ -31,11 +31,10 @@ const REASON_ACTIONS: Record<AttentionReason, (row: VentureHealth) => VentureAct
     hint: "No fresh pulse in over two weeks",
   }),
   stale_pnl: (row) => ({
-    label: "Log money",
-    type: "record_revenue",
+    label: "Log update",
+    type: "pulse",
     ventureId: row.venture.id,
-    kind: "revenue",
-    hint: "No money logged recently",
+    hint: "No money logged — note what's going on or log revenue",
   }),
   new_negative_month: (row) => ({
     label: "Review spending",

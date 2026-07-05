@@ -26,7 +26,10 @@ export function TrendChart({
     <div className={cn("w-full", className)}>
       <div className="flex items-end gap-2" style={{ height }}>
         {data.map((point) => {
-          const barHeight = Math.max(8, ((point.value - min) / range) * (height - 24));
+          const barHeight =
+            point.value === 0 && max > 0
+              ? 3
+              : Math.max(point.value === 0 ? 3 : 10, ((point.value - min) / range) * (height - 28));
           const isNegative = variant === "money" && point.value < 0;
           const isPositive = variant === "money" && point.value > 0;
           return (

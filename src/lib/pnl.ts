@@ -94,7 +94,11 @@ export async function monthlyTrend(
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const from = d.getTime();
     const to = endOfMonthMs(d);
-    const net = await netCents({ ventureId, from, to });
+    // null/undefined = entire portfolio (all ventures). String id = that venture only.
+    const net =
+      ventureId != null
+        ? await netCents({ ventureId, from, to })
+        : await netCents({ from, to });
     const label = d.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
     results.push({ month: label, netCents: net });
   }

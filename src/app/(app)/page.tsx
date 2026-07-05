@@ -3,7 +3,7 @@ import { PageHeader, SectionCard } from "@/components/ui/page-header";
 import { MoneyBlock } from "@/components/portfolio/MoneyBlock";
 import { VentureHealthTable } from "@/components/portfolio/VentureHealthTable";
 import { ReferencePanel } from "@/components/portfolio/ReferencePanel";
-import { PortfolioActions } from "@/components/portfolio/PortfolioActions";
+import { PortfolioPulseBanner } from "@/components/portfolio/PortfolioPulseBanner";
 import { companyNetThisMonth, monthlyTrend, ownerEquityCents } from "@/lib/pnl";
 import { getVentureHealthSummaries } from "@/lib/venture-health";
 import { getPortfolioRitualStatus, portfolioHeaderLine } from "@/lib/ritual";
@@ -28,13 +28,14 @@ export default async function PortfolioPage() {
   const topBlocker = summaries.find((s) => s.trajectory === "down" && s.lastCheckinNote);
 
   return (
-    <div className="space-y-8 pb-4">
+    <div className="space-y-6 pb-4">
       <PageHeader
         eyebrow="Brask Group"
         title="Base Camp"
         description={portfolioHeaderLine(ritual, attentionCount)}
-        actions={<PortfolioActions ritual={ritual} />}
       />
+
+      <PortfolioPulseBanner ritual={ritual} />
 
       <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
         <MoneyBlock
@@ -45,15 +46,15 @@ export default async function PortfolioPage() {
         />
         <div className="flex flex-col gap-4">
           {topBlocker ? (
-            <SectionCard title="What's stuck" description="From the latest pulse">
+            <SectionCard title="Needs attention" description="Highest-priority blocker">
               <Link href={`/ventures/${topBlocker.venture.slug}`} className="group block">
                 <p className="font-heading text-lg font-semibold group-hover:text-primary">
                   {topBlocker.venture.name}
                 </p>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                <p className="mt-2 text-sm leading-relaxed text-red-800 dark:text-red-300">
                   {topBlocker.lastCheckinNote}
                 </p>
-                <p className="mt-3 text-xs font-medium text-primary">See what&apos;s blocking it →</p>
+                <p className="mt-3 text-xs font-medium text-primary">Open venture →</p>
               </Link>
             </SectionCard>
           ) : (
@@ -64,10 +65,7 @@ export default async function PortfolioPage() {
         </div>
       </div>
 
-      <SectionCard
-        title="How ventures are doing"
-        description="Drag rows to set priority. The next-step button opens the right wizard or venture page."
-      >
+      <SectionCard title="Venture priorities" description="Your ranked list — reorder when your focus shifts.">
         <VentureHealthTable summaries={summaries} />
       </SectionCard>
 

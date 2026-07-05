@@ -79,19 +79,17 @@ export function venturePulseWizardTitle(ventureName: string): string {
 }
 
 export function portfolioHeaderLine(ritual: PortfolioRitualStatus, attentionCount: number): string {
-  if (ritual.status === "overdue" || ritual.status === "due" || ritual.status === "never") {
-    return ritualButtonCopy(ritual).hint;
-  }
   if (attentionCount > 0) {
-    return `${attentionCount} venture${attentionCount === 1 ? " needs" : "s need"} a look — details below.`;
+    return `${attentionCount} venture${attentionCount === 1 ? " needs" : "s need"} attention — see your priority list below.`;
   }
-  const when =
-    ritual.lastFullRitualAt && ritual.daysSinceLastRitual != null
-      ? ritual.daysSinceLastRitual === 0
+  if (ritual.status === "current" && ritual.lastFullRitualAt && ritual.daysSinceLastRitual != null) {
+    const when =
+      ritual.daysSinceLastRitual === 0
         ? "today"
         : ritual.daysSinceLastRitual === 1
           ? "yesterday"
-          : formatDate(ritual.lastFullRitualAt)
-      : null;
-  return when ? `You're caught up. Last full pulse was ${when}.` : "Everything looks steady right now.";
+          : formatDate(ritual.lastFullRitualAt);
+    return `Last full pulse was ${when}. Everything else is below.`;
+  }
+  return "Your ventures at a glance — highest priority first.";
 }
