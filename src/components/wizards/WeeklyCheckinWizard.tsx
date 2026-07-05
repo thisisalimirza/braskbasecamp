@@ -167,9 +167,16 @@ function WeeklyCheckinInner({
                   {TRAJECTORY_LABELS[item.trajectory]}
                 </span>
               </div>
-              {item.stalePnl && (
+              {item.tracksMoney && item.stalePnl && (
                 <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
                   No money logged in {item.daysSincePnl != null ? `${item.daysSincePnl} days` : "over 2 weeks"}
+                </p>
+              )}
+              {item.staleKpiNames.length > 0 && (
+                <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
+                  {item.staleKpiNames.length === 1
+                    ? `${item.staleKpiNames[0]} not updated on your last pulse`
+                    : `${item.staleKpiNames.join(", ")} not updated on your last pulse`}
                 </p>
               )}
             </li>

@@ -1,13 +1,20 @@
 import { listActiveVentures, type Venture } from "./ventures";
 import { getLatestCheckin } from "./checkins";
 import { lastPnlEntryDate, ventureNetThisMonth } from "./pnl";
-import { daysAgoMs } from "./format";
 import type { Trajectory } from "./checkins";
 import type { AttentionReason } from "./attention";
 import { primaryActionForVenture } from "./next-actions";
 import { getPrimaryBlockersForVentures, countOpenBlockersForVentures } from "./blockers";
 import { getFocusPlanItemsForVentures } from "./plan";
 import type { PlanItemStatus } from "./plan-types";
+import { getKpisWithLatest } from "./kpis";
+import {
+  buildKpiStatuses,
+  collectVentureAttentionReasons,
+  firstStaleNonMoneyKpi,
+  ventureTracksMoney,
+  type KpiStatusChip,
+} from "./kpi-tracking";
 
 export type VentureHealth = {
   venture: Venture;
@@ -17,28 +24,15 @@ export type VentureHealth = {
   lastCheckinAt: number | null;
   lastCheckinNote: string | null;
   lastPnlAt: number | null;
+  tracksMoney: boolean;
+  kpiStatuses: KpiStatusChip[];
+  staleKpiName: string | null;
   reasons: AttentionReason[];
   primaryAction: string;
   primaryBlocker: { id: string; body: string } | null;
   openBlockerCount: number;
   focusPlanItem: { id: string; title: string; status: PlanItemStatus } | null;
 };
-
-function collectReasons(
-  trajectory: Trajectory | null,
-  lastCheckinAt: number | null,
-  lastPnlAt: number | null,
-  netCents: number,
-  netLastMonth: number
-): AttentionReason[] {
-  const cutoff = daysAgoMs(14);
-  const reasons: AttentionReason[] = [];
-  if (trajectory === "down") reasons.push("trajectory_down");
-  if (!lastCheckinAt || lastCheckinAt < cutoff) reasons.push("stale_checkin");
-  if (!lastPnlAt || lastPnlAt < cutoff) reasons.push("stale_pnl");
-  if (netCents < 0 && netLastMonth >= 0) reasons.push("new_negative_month");
-  return reasons;
-}
 
 export async function getVentureHealthSummaries(): Promise<VentureHealth[]> {
   const ventures = await listActiveVentures();
@@ -54,20 +48,27 @@ export async function getVentureHealthSummaries(): Promise<VentureHealth[]> {
   const summaries: VentureHealth[] = [];
 
   for (const venture of ventures) {
-    const [netCents, netLastMonth, latestCheckin, lastPnlAt] = await Promise.all([
+    const [netCents, netLastMonth, latestCheckin, lastPnlAt, kpis] = await Promise.all([
       ventureNetThisMonth(venture.id),
       ventureNetLastMonth(venture.id),
       getLatestCheckin(venture.id),
       lastPnlEntryDate(venture.id),
+      getKpisWithLatest(venture.id),
     ]);
 
-    const reasons = collectReasons(
-      latestCheckin?.trajectory ?? null,
-      latestCheckin?.checkedAt ?? null,
+    const tracksMoney = ventureTracksMoney(kpis);
+    const kpiStatuses = buildKpiStatuses(kpis, lastPnlAt);
+    const staleKpi = firstStaleNonMoneyKpi(kpis, lastPnlAt);
+
+    const reasons = collectVentureAttentionReasons({
+      trajectory: latestCheckin?.trajectory ?? null,
+      lastCheckinAt: latestCheckin?.checkedAt ?? null,
       lastPnlAt,
       netCents,
-      netLastMonth
-    );
+      netLastMonth,
+      tracksMoney,
+      kpis,
+    });
 
     const primary = primaryBlockers.get(venture.id) ?? null;
     const focus = focusPlans.get(venture.id) ?? null;
@@ -80,6 +81,9 @@ export async function getVentureHealthSummaries(): Promise<VentureHealth[]> {
       lastCheckinAt: latestCheckin?.checkedAt ?? null,
       lastCheckinNote: latestCheckin?.note ?? null,
       lastPnlAt,
+      tracksMoney,
+      kpiStatuses,
+      staleKpiName: staleKpi?.name ?? null,
       reasons,
       primaryAction: "",
       primaryBlocker: primary ? { id: primary.id, body: primary.body } : null,

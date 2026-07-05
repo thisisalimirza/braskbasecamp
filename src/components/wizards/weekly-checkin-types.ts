@@ -8,6 +8,8 @@ export type VentureCheckinDraft = {
   trajectory: Trajectory;
   note: string;
   kpiValues: Record<string, string>;
+  tracksMoney: boolean;
   stalePnl: boolean;
   daysSincePnl: number | null;
+  staleKpiNames: string[];
 };

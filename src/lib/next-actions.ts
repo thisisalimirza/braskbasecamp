@@ -36,7 +36,15 @@ const REASON_ACTIONS: Record<AttentionReason, (row: VentureHealth) => VentureAct
     type: "record_revenue",
     ventureId: row.venture.id,
     kind: "revenue",
-    hint: "No money logged in 2+ weeks — record revenue or tap the amber chip to explain",
+    hint: "Revenue KPI venture — no money logged in 2+ weeks",
+  }),
+  stale_kpi: (row) => ({
+    label: "Update metrics",
+    type: "pulse",
+    ventureId: row.venture.id,
+    hint: row.staleKpiName
+      ? `${row.staleKpiName} wasn't updated on your last pulse`
+      : "Refresh your key numbers on the next pulse",
   }),
   new_negative_month: (row) => ({
     label: "Review spending",
@@ -83,6 +91,8 @@ export function friendlyActionHint(reason: AttentionReason): string {
       return "No fresh pulse in over two weeks";
     case "stale_pnl":
       return "No money logged in over two weeks";
+    case "stale_kpi":
+      return "A key metric wasn't updated on your last pulse";
     case "new_negative_month":
       return "Spending more than earning this month";
   }

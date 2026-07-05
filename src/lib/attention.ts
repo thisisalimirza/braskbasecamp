@@ -1,13 +1,15 @@
 import { listActiveVentures } from "./ventures";
 import { getLatestCheckin, lastCheckinDate } from "./checkins";
 import { lastPnlEntryDate, ventureNetThisMonth, ventureNetLastMonth } from "./pnl";
-import { daysAgoMs } from "./format";
+import { getKpisWithLatest } from "./kpis";
+import { collectVentureAttentionReasons, ventureTracksMoney } from "./kpi-tracking";
 import { friendlyActionHint } from "./next-actions";
 
 export type AttentionReason =
   | "trajectory_down"
   | "stale_checkin"
   | "stale_pnl"
+  | "stale_kpi"
   | "new_negative_month";
 
 export type AttentionItem = {
@@ -22,29 +24,33 @@ const REASON_LABELS: Record<AttentionReason, string> = {
   trajectory_down: friendlyActionHint("trajectory_down"),
   stale_checkin: friendlyActionHint("stale_checkin"),
   stale_pnl: friendlyActionHint("stale_pnl"),
+  stale_kpi: friendlyActionHint("stale_kpi"),
   new_negative_month: friendlyActionHint("new_negative_month"),
 };
 
 export async function getAttentionItems(): Promise<AttentionItem[]> {
   const ventures = await listActiveVentures();
-  const cutoff = daysAgoMs(14);
   const items: AttentionItem[] = [];
 
   for (const v of ventures) {
-    const reasons: AttentionReason[] = [];
+    const [latestCheckin, lastCheckin, lastPnl, kpis, thisMonth, lastMonth] = await Promise.all([
+      getLatestCheckin(v.id),
+      lastCheckinDate(v.id),
+      lastPnlEntryDate(v.id),
+      getKpisWithLatest(v.id),
+      ventureNetThisMonth(v.id),
+      ventureNetLastMonth(v.id),
+    ]);
 
-    const latestCheckin = await getLatestCheckin(v.id);
-    if (latestCheckin?.trajectory === "down") reasons.push("trajectory_down");
-
-    const lastCheckin = await lastCheckinDate(v.id);
-    if (!lastCheckin || lastCheckin < cutoff) reasons.push("stale_checkin");
-
-    const lastPnl = await lastPnlEntryDate(v.id);
-    if (!lastPnl || lastPnl < cutoff) reasons.push("stale_pnl");
-
-    const thisMonth = await ventureNetThisMonth(v.id);
-    const lastMonth = await ventureNetLastMonth(v.id);
-    if (thisMonth < 0 && lastMonth >= 0) reasons.push("new_negative_month");
+    const reasons = collectVentureAttentionReasons({
+      trajectory: latestCheckin?.trajectory ?? null,
+      lastCheckinAt: lastCheckin,
+      lastPnlAt: lastPnl,
+      netCents: thisMonth,
+      netLastMonth: lastMonth,
+      tracksMoney: ventureTracksMoney(kpis),
+      kpis,
+    });
 
     if (reasons.length > 0) {
       items.push({

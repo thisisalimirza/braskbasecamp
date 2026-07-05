@@ -214,9 +214,7 @@ function VentureRow({
   const blockerText = attentionHeadline(row);
   const attentionContext = portfolioAttentionSnippet(row)?.context;
   const pulseMissing = !row.lastCheckinAt || row.lastCheckinAt < cutoff;
-  const moneyMissing = !row.lastPnlAt || row.lastPnlAt < cutoff;
   const pulseLabel = relativeDays(row.lastCheckinAt);
-  const moneyLabel = relativeDays(row.lastPnlAt);
 
   const style = sortable
     ? {
@@ -310,10 +308,16 @@ function VentureRow({
             label={pulseLabel ? `Pulse · ${pulseLabel}` : "Pulse · missing"}
             attention={pulseMissing}
           />
-          <StatusChip
-            label={moneyLabel ? `Money · ${moneyLabel}` : "Money · missing"}
-            attention={moneyMissing}
-          />
+          {row.kpiStatuses.map((kpi) => {
+            const when = relativeDays(kpi.lastAt);
+            return (
+              <StatusChip
+                key={kpi.id}
+                label={when ? `${kpi.name} · ${when}` : `${kpi.name} · not updated`}
+                attention={kpi.stale}
+              />
+            );
+          })}
         </div>
       </td>
       <td className="w-[148px] py-4 pr-3 align-middle">
@@ -400,7 +404,7 @@ export function VentureHealthTable({ summaries }: { summaries: VentureHealth[] }
         <p className="text-xs text-muted-foreground">
           {reorderMode
             ? "Drag ventures into priority order, then tap Done."
-            : "Status shows pulse & money timing. Use Next step for the one action to take."}
+            : "Status shows pulse & KPI timing. Use Next step for the one action to take."}
         </p>
         <Button
           type="button"

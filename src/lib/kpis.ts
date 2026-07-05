@@ -103,7 +103,11 @@ export async function createKpiEntry(input: {
   });
 }
 
-export type KpiWithLatest = KpiDefinition & { latestValue: number | null; history: number[] };
+export type KpiWithLatest = KpiDefinition & {
+  latestValue: number | null;
+  lastRecordedAt: number | null;
+  history: number[];
+};
 
 export async function getKpisWithLatest(ventureId: string): Promise<KpiWithLatest[]> {
   const defs = await listKpiDefinitions(ventureId);
@@ -114,6 +118,7 @@ export async function getKpisWithLatest(ventureId: string): Promise<KpiWithLates
     result.push({
       ...def,
       latestValue: latest?.value ?? null,
+      lastRecordedAt: latest?.recordedOn ?? null,
       history: history.map((e) => e.value),
     });
   }
