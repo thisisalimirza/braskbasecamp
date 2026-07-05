@@ -294,3 +294,21 @@ export async function ventureNetLastMonth(ventureId: string): Promise<number> {
   const to = startOfMonthMs() - 1;
   return netCents({ ventureId, from, to });
 }
+
+export async function ventureMonthBreakdown(
+  ventureId: string
+): Promise<{ revenueCents: number; costCents: number; netCents: number }> {
+  const db = await getDb();
+  const from = startOfMonthMs();
+  const res = await db.execute({
+    sql: `SELECT
+      COALESCE(SUM(CASE WHEN entry_type = 'revenue' THEN amount_cents ELSE 0 END), 0) AS revenue,
+      COALESCE(SUM(CASE WHEN entry_type = 'cost' THEN amount_cents ELSE 0 END), 0) AS cost
+    FROM pnl_entries
+    WHERE venture_id = ? AND occurred_on >= ? AND entry_type IN ('revenue', 'cost')`,
+    args: [ventureId, from],
+  });
+  const revenueCents = Number(res.rows[0].revenue);
+  const costCents = Number(res.rows[0].cost);
+  return { revenueCents, costCents, netCents: revenueCents - costCents };
+}
