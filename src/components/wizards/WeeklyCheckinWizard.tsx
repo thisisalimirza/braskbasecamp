@@ -101,7 +101,9 @@ function WeeklyCheckinInner({
                   <Input
                     type="number"
                     className="mt-1"
-                    placeholder={kpi.latestValue?.toString() ?? ""}
+                    placeholder={
+                      kpi.latestValue != null ? `Last pulse: ${kpi.latestValue}` : "Enter current value"
+                    }
                     value={item.kpiValues[kpi.id] ?? ""}
                     onChange={(e) =>
                       updateItem(idx, { kpiValues: { ...item.kpiValues, [kpi.id]: e.target.value } })

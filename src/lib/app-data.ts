@@ -6,9 +6,7 @@ import { getKpisWithLatest } from "@/lib/kpis";
 import { lastPnlEntryDate } from "@/lib/pnl";
 import { daysAgoMs } from "@/lib/format";
 import { getPortfolioRitualStatus } from "@/lib/ritual";
-import { getLatestCheckin } from "@/lib/checkins";
 import type { VentureCheckinDraft } from "@/components/wizards/weekly-checkin-types";
-import type { Trajectory } from "@/lib/checkins";
 
 export async function getAppShellData() {
   const [ventures, revenueCategories, costCategories, clients, activeVentures, ritual] =
@@ -28,14 +26,13 @@ export async function getAppShellData() {
   const cutoff = daysAgoMs(14);
 
   for (const v of activeVentures) {
-    const [kpis, latestCheckin, lastPnl] = await Promise.all([
+    const [kpis, lastPnl] = await Promise.all([
       getKpisWithLatest(v.id),
-      getLatestCheckin(v.id),
       lastPnlEntryDate(v.id),
     ]);
     const kpiValues: Record<string, string> = {};
     for (const k of kpis) {
-      kpiValues[k.id] = k.latestValue != null ? String(k.latestValue) : "";
+      kpiValues[k.id] = "";
     }
     const stale = !lastPnl || lastPnl < cutoff;
     const days =
@@ -44,8 +41,8 @@ export async function getAppShellData() {
     checkinDrafts.push({
       venture: v,
       kpis,
-      trajectory: latestCheckin?.trajectory ?? ("flat" as Trajectory),
-      note: latestCheckin?.note ?? "",
+      trajectory: "flat",
+      note: "",
       kpiValues,
       stalePnl: stale,
       daysSincePnl: days,
