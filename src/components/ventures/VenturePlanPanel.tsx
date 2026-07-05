@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
@@ -54,6 +55,19 @@ import { PLAN_COLUMNS, type PlanItem, type PlanItemStatus } from "@/lib/plan-typ
 import type { VentureBlocker } from "@/lib/blocker-types";
 import { planStatusLabel } from "@/lib/next-actions";
 import { cn } from "@/lib/utils";
+
+const NO_BLOCKER_VALUE = "none";
+
+function planColumnLabel(status: PlanItemStatus): string {
+  return PLAN_COLUMNS.find((c) => c.id === status)?.label ?? status;
+}
+
+function blockerSelectLabel(blockerId: string, blockers: VentureBlocker[]): string {
+  if (!blockerId) return "No blocker link";
+  const body = blockers.find((b) => b.id === blockerId)?.body;
+  if (!body) return "No blocker link";
+  return body.length > 56 ? `${body.slice(0, 56)}…` : body;
+}
 
 type ViewMode = "board" | "list";
 
@@ -319,7 +333,10 @@ export function VenturePlanPanel({
                 List
               </button>
             </div>
-            <Button type="button" size="sm" className="gap-1" onClick={() => setAddOpen(true)}>
+            <Button type="button" size="sm" className="gap-1" onClick={() => {
+              setForm({ title: "", notes: "", status: "backlog", blockerId: "" });
+              setAddOpen(true);
+            }}>
               <Plus className="size-4" />
               Add step
             </Button>
@@ -365,52 +382,82 @@ export function VenturePlanPanel({
               Capture what you intend to do — link a blocker if this step unblocks something.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-3">
-            <Input
-              placeholder="e.g. Ship onboarding v2"
-              value={form.title}
-              onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-            />
-            <Textarea
-              rows={2}
-              placeholder="Optional context for future-you"
-              value={form.notes}
-              onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-            />
-            <Select
-              value={form.status}
-              onValueChange={(v) => setForm((f) => ({ ...f, status: v as PlanItemStatus }))}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {PLAN_COLUMNS.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {openBlockers.length > 0 && (
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="plan-step-title" className="text-xs">
+                Step title
+              </Label>
+              <Input
+                id="plan-step-title"
+                placeholder="e.g. Ship onboarding v2"
+                value={form.title}
+                onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                className="mt-1.5"
+              />
+            </div>
+            <div>
+              <Label htmlFor="plan-step-notes" className="text-xs">
+                Notes <span className="font-normal text-muted-foreground">(optional)</span>
+              </Label>
+              <Textarea
+                id="plan-step-notes"
+                rows={2}
+                placeholder="Context for future-you"
+                value={form.notes}
+                onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
+                className="mt-1.5"
+              />
+            </div>
+            <div>
+              <Label htmlFor="plan-step-status" className="text-xs">
+                Starting column
+              </Label>
               <Select
-                value={form.blockerId || "__none"}
-                onValueChange={(v) =>
-                  setForm((f) => ({ ...f, blockerId: !v || v === "__none" ? "" : v }))
-                }
+                value={form.status}
+                onValueChange={(v) => v && setForm((f) => ({ ...f, status: v as PlanItemStatus }))}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Link to blocker (optional)" />
+                <SelectTrigger id="plan-step-status" className="mt-1.5 w-full">
+                  <SelectValue>{planColumnLabel(form.status)}</SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__none">No blocker link</SelectItem>
-                  {openBlockers.map((b) => (
-                    <SelectItem key={b.id} value={b.id}>
-                      {b.body.length > 48 ? `${b.body.slice(0, 48)}…` : b.body}
+                  {PLAN_COLUMNS.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      <span className="font-medium">{c.label}</span>
+                      <span className="ml-2 text-muted-foreground">— {c.hint}</span>
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            {openBlockers.length > 0 && (
+              <div>
+                <Label htmlFor="plan-step-blocker" className="text-xs">
+                  Linked blocker <span className="font-normal text-muted-foreground">(optional)</span>
+                </Label>
+                <Select
+                  value={form.blockerId || NO_BLOCKER_VALUE}
+                  onValueChange={(v) =>
+                    setForm((f) => ({
+                      ...f,
+                      blockerId: !v || v === NO_BLOCKER_VALUE ? "" : v,
+                    }))
+                  }
+                >
+                  <SelectTrigger id="plan-step-blocker" className="mt-1.5 w-full">
+                    <SelectValue>
+                      {blockerSelectLabel(form.blockerId, openBlockers)}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NO_BLOCKER_VALUE}>No blocker link</SelectItem>
+                    {openBlockers.map((b) => (
+                      <SelectItem key={b.id} value={b.id}>
+                        {b.body.length > 48 ? `${b.body.slice(0, 48)}…` : b.body}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             )}
           </div>
           <DialogFooter>
