@@ -1,36 +1,57 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Brask Base Camp
 
-## Getting Started
+Internal management hub for Brask Group ventures.
 
-First, run the development server:
+## Stack
+
+- Next.js 16 + TypeScript
+- Turso (libSQL / SQLite)
+- shadcn/ui + Tailwind 4
+- Single-password auth (HMAC session cookie)
+
+## Local development
 
 ```bash
+npm install
+cp .env.example .env.local
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Default login password: `changeme` (set `APP_PASSWORD` in `.env.local`).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Migrations run automatically on first DB access against `file:./local.db`.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Environment variables
 
-## Learn More
+| Variable | Description |
+|----------|-------------|
+| `TURSO_DATABASE_URL` | Turso URL or `file:./local.db` for local |
+| `TURSO_AUTH_TOKEN` | Turso auth token (omit for local file) |
+| `APP_PASSWORD` | Shared login password |
+| `SESSION_SECRET` | HMAC secret for session cookie |
 
-To learn more about Next.js, take a look at the following resources:
+## Production (Turso + Vercel)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+1. Create Turso database:
+   ```bash
+   turso db create brask-base-camp
+   turso db show brask-base-camp --url
+   turso db tokens create brask-base-camp
+   ```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+2. Run migrations:
+   ```bash
+   turso db shell brask-base-camp < migrations/001_schema.sql
+   turso db shell brask-base-camp < migrations/002_seed_categories.sql
+   turso db shell brask-base-camp < migrations/003_seed_ventures.sql
+   ```
 
-## Deploy on Vercel
+3. Deploy to Vercel and set env vars (`TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`, `APP_PASSWORD`, `SESSION_SECRET`).
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+4. Optional: enable Vercel Deployment Protection for an extra gate.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Scripts
+
+- `npm run dev` — local dev server
+- `npm run build` — production build
+- `npm run migrate` — apply migrations to local.db manually
