@@ -39,6 +39,7 @@ async function run(fn: () => Promise<void>): Promise<FormState> {
 function revalidatePortfolio() {
   revalidatePath("/");
   revalidatePath("/ventures");
+  revalidatePath("/tasks");
 }
 
 function revalidateVenture(slug?: string) {

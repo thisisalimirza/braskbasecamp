@@ -19,6 +19,12 @@ export const PLAN_COLUMNS: { id: PlanItemStatus; label: string; hint: string }[]
   { id: "done", label: "Done", hint: "Completed — archive of what shipped" },
 ];
 
+export type GlobalPlanItem = PlanItem & {
+  ventureName: string;
+  ventureSlug: string;
+  blockerBody: string | null;
+};
+
 export function rowToPlanItem(row: Record<string, unknown>): PlanItem {
   return {
     id: String(row.id),

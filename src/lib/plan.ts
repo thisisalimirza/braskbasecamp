@@ -1,8 +1,8 @@
 import { getDb, newId, nowMs } from "./db";
-import type { PlanItem, PlanItemStatus } from "./plan-types";
+import type { PlanItem, PlanItemStatus, GlobalPlanItem } from "./plan-types";
 import { rowToPlanItem } from "./plan-types";
 
-export type { PlanItem, PlanItemStatus } from "./plan-types";
+export type { PlanItem, PlanItemStatus, GlobalPlanItem } from "./plan-types";
 export { PLAN_COLUMNS, rowToPlanItem } from "./plan-types";
 
 export async function listPlanItems(ventureId: string): Promise<PlanItem[]> {
@@ -110,6 +110,30 @@ export async function movePlanItem(id: string, status: PlanItemStatus, sortOrder
 export async function deletePlanItem(id: string): Promise<void> {
   const db = await getDb();
   await db.execute({ sql: "DELETE FROM venture_plan_items WHERE id = ?", args: [id] });
+}
+
+export async function listAllPlanItems(): Promise<GlobalPlanItem[]> {
+  const db = await getDb();
+  const res = await db.execute({
+    sql: `SELECT p.*, v.name AS venture_name, v.slug AS venture_slug, b.body AS blocker_body
+          FROM venture_plan_items p
+          INNER JOIN ventures v ON v.id = p.venture_id AND v.status = 'active'
+          LEFT JOIN venture_blockers b ON b.id = p.blocker_id
+          ORDER BY CASE p.status
+            WHEN 'doing' THEN 0 WHEN 'next' THEN 1 WHEN 'backlog' THEN 2 ELSE 3 END,
+            p.sort_order ASC, p.created_at ASC`,
+  });
+
+  return res.rows.map((row) => {
+    const item = rowToPlanItem(row as Record<string, unknown>);
+    const r = row as Record<string, unknown>;
+    return {
+      ...item,
+      ventureName: String(r.venture_name),
+      ventureSlug: String(r.venture_slug),
+      blockerBody: r.blocker_body == null ? null : String(r.blocker_body),
+    };
+  });
 }
 
 export async function getUpcomingPlanItemsForVentures(

@@ -218,6 +218,15 @@ export async function createBlockerFromCheckin(input: {
   });
 }
 
+export async function listAllOpenBlockers(): Promise<VentureBlocker[]> {
+  const db = await getDb();
+  const res = await db.execute({
+    sql: `SELECT * FROM venture_blockers WHERE status = 'open'
+          ORDER BY venture_id, is_primary DESC, sort_order ASC, created_at DESC`,
+  });
+  return res.rows.map((r) => rowToBlocker(r as Record<string, unknown>));
+}
+
 export async function getPrimaryBlockersForVentures(
   ventureIds: string[]
 ): Promise<Map<string, VentureBlocker | null>> {

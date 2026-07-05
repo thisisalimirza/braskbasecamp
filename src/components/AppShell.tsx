@@ -14,13 +14,14 @@ import type { Venture } from "@/lib/ventures";
 import type { Category } from "@/lib/categories";
 import type { Client } from "@/lib/clients";
 import type { PortfolioRitualStatus } from "@/lib/ritual-copy";
-import { ritualWizardTitle, venturePulseWizardTitle } from "@/lib/ritual-copy";
+import { ritualWizardTitle, venturePulseWizardTitle, remainingPulseWizardTitle } from "@/lib/ritual-copy";
 import { cn } from "@/lib/utils";
 
 type RecordPrefill = { ventureId?: string; clientId?: string; kind?: "revenue" | "cost" | "owner" };
 
 const NAV = [
   { href: "/", label: "Portfolio" },
+  { href: "/tasks", label: "Tasks" },
   { href: "/ventures", label: "Ventures" },
 ];
 
@@ -44,10 +45,11 @@ export function AppShell({
   ritual: PortfolioRitualStatus;
 }) {
   const pathname = usePathname();
+  const wideLayout = pathname.startsWith("/tasks");
   const [recordOpen, setRecordOpen] = useState(false);
   const [recordPrefill, setRecordPrefill] = useState<RecordPrefill>();
   const [checkinOpen, setCheckinOpen] = useState(false);
-  const [checkinVentureId, setCheckinVentureId] = useState<string | null>(null);
+  const [checkinFilter, setCheckinFilter] = useState<string[] | "all">("all");
 
   const openRecordMoney = useCallback((prefill?: RecordPrefill) => {
     setRecordPrefill(prefill);
@@ -55,12 +57,23 @@ export function AppShell({
   }, []);
 
   const openCheckin = useCallback(
-    (ventureId?: string) => {
-      if (ventureId && !checkinDrafts.some((d) => d.venture.id === ventureId)) {
-        toast.error("This venture isn't active — pulse it from the portfolio when ready.");
-        return;
+    (ventureIds?: string | string[]) => {
+      if (!ventureIds) {
+        setCheckinFilter("all");
+      } else if (typeof ventureIds === "string") {
+        if (!checkinDrafts.some((d) => d.venture.id === ventureIds)) {
+          toast.error("This venture isn't active — pulse it from the portfolio when ready.");
+          return;
+        }
+        setCheckinFilter([ventureIds]);
+      } else {
+        const ids = ventureIds.filter((id) => checkinDrafts.some((d) => d.venture.id === id));
+        if (ids.length === 0) {
+          toast.error("No active ventures to pulse.");
+          return;
+        }
+        setCheckinFilter(ids);
       }
-      setCheckinVentureId(ventureId ?? null);
       setCheckinOpen(true);
     },
     [checkinDrafts]
@@ -68,30 +81,36 @@ export function AppShell({
 
   const handleCheckinOpenChange = (open: boolean) => {
     setCheckinOpen(open);
-    if (!open) setCheckinVentureId(null);
+    if (!open) setCheckinFilter("all");
   };
 
-  const activeCheckinDrafts = checkinVentureId
-    ? checkinDrafts.filter((d) => d.venture.id === checkinVentureId)
-    : checkinDrafts;
+  const activeCheckinDrafts =
+    checkinFilter === "all"
+      ? checkinDrafts
+      : checkinDrafts.filter((d) => checkinFilter.includes(d.venture.id));
 
   const checkinTitle =
-    checkinVentureId && activeCheckinDrafts[0]
+    checkinFilter !== "all" && activeCheckinDrafts.length === 1
       ? venturePulseWizardTitle(activeCheckinDrafts[0].venture.name)
-      : ritualWizardTitle(ritual.status);
+      : checkinFilter !== "all" && activeCheckinDrafts.length > 1
+        ? remainingPulseWizardTitle(activeCheckinDrafts.length)
+        : ritualWizardTitle(ritual.status);
 
   useEffect(() => {
     const w = window as Window & {
       __openCheckin?: () => void;
       __openCheckinVenture?: (ventureId: string) => void;
+      __openCheckinVentures?: (ventureIds: string[]) => void;
       __openRecordMoney?: (p?: RecordPrefill) => void;
     };
     w.__openCheckin = () => openCheckin();
     w.__openCheckinVenture = (ventureId: string) => openCheckin(ventureId);
+    w.__openCheckinVentures = (ventureIds: string[]) => openCheckin(ventureIds);
     w.__openRecordMoney = openRecordMoney;
     return () => {
       delete w.__openCheckin;
       delete w.__openCheckinVenture;
+      delete w.__openCheckinVentures;
       delete w.__openRecordMoney;
     };
   }, [openCheckin, openRecordMoney]);
@@ -131,7 +150,14 @@ export function AppShell({
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-8 sm:px-6">{children}</main>
+      <main
+        className={cn(
+          "mx-auto w-full flex-1 px-4 py-8 sm:px-6",
+          wideLayout ? "max-w-[min(1600px,100%)]" : "max-w-4xl"
+        )}
+      >
+        {children}
+      </main>
 
       <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center pb-6">
         <Button
@@ -158,12 +184,12 @@ export function AppShell({
 
       {activeCheckinDrafts.length > 0 && (
         <WeeklyCheckinWizard
-          key={`${checkinOpen}-${checkinVentureId ?? "portfolio"}`}
+          key={`${checkinOpen}-${checkinFilter === "all" ? "portfolio" : checkinFilter.join(",")}`}
           open={checkinOpen}
           onOpenChange={handleCheckinOpenChange}
           initial={activeCheckinDrafts}
           title={checkinTitle}
-          singleVenture={checkinVentureId != null}
+          singleVenture={checkinFilter !== "all" && activeCheckinDrafts.length === 1}
         />
       )}
     </div>
@@ -179,6 +205,13 @@ export function openWeeklyCheckin() {
 export function openWeeklyCheckinForVenture(ventureId: string) {
   (window as Window & { __openCheckinVenture?: (ventureId: string) => void }).__openCheckinVenture?.(
     ventureId
+  );
+}
+
+/** Pulse only the ventures that still need a check-in. */
+export function openWeeklyCheckinForVentures(ventureIds: string[]) {
+  (window as Window & { __openCheckinVentures?: (ventureIds: string[]) => void }).__openCheckinVentures?.(
+    ventureIds
   );
 }
 

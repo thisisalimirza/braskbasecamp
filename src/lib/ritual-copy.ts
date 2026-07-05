@@ -2,66 +2,85 @@ import { formatDate } from "./format";
 
 export type RitualStatus = "never" | "overdue" | "due" | "current";
 
+export type VenturePulseNeed = {
+  id: string;
+  name: string;
+  slug: string;
+};
+
 export type PortfolioRitualStatus = {
   status: RitualStatus;
   lastFullRitualAt: number | null;
   daysSinceLastRitual: number | null;
   activeVentureCount: number;
   venturesMissingPulse: number;
+  venturesNeedingPulse: VenturePulseNeed[];
 };
 
-export function ritualButtonCopy(status: PortfolioRitualStatus): {
-  label: string;
+export type PulseBannerCopy = {
+  title: string;
   hint: string;
-  variant: "default" | "secondary" | "outline" | "ghost";
+  buttonLabel: string;
+  ventureIds: string[];
   prominent: boolean;
-} {
-  const when = status.lastFullRitualAt
-    ? status.daysSinceLastRitual === 0
-      ? "today"
-      : status.daysSinceLastRitual === 1
-        ? "yesterday"
-        : formatDate(status.lastFullRitualAt)
-    : null;
+};
+
+function formatVentureList(names: string[]): string {
+  if (names.length === 0) return "";
+  if (names.length === 1) return names[0];
+  if (names.length === 2) return `${names[0]} and ${names[1]}`;
+  return `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`;
+}
+
+function pulseButtonLabel(ventures: VenturePulseNeed[]): string {
+  if (ventures.length === 1) return `Pulse ${ventures[0].name}`;
+  return `Pulse ${ventures.length} remaining`;
+}
+
+/** Returns null when every venture has a fresh pulse — banner should hide. */
+export function pulseBannerCopy(status: PortfolioRitualStatus): PulseBannerCopy | null {
+  const missing = status.venturesNeedingPulse;
+  if (missing.length === 0) return null;
+
+  const list = formatVentureList(missing.map((v) => v.name));
+  const ids = missing.map((v) => v.id);
+  const buttonLabel = pulseButtonLabel(missing);
 
   switch (status.status) {
     case "never":
       return {
-        label: "Run your first pulse",
-        hint: "Walk through each venture once — how it's going, key numbers, anything stuck.",
-        variant: "default",
+        title: "Run your first portfolio pulse",
+        hint:
+          missing.length === status.activeVentureCount
+            ? "Walk through each venture — how it's going, key numbers, what's in the way."
+            : `${list} ${missing.length === 1 ? "hasn't" : "haven't"} had a pulse yet.`,
+        buttonLabel: missing.length === status.activeVentureCount ? "Run first pulse" : buttonLabel,
+        ventureIds: ids,
         prominent: true,
       };
     case "overdue":
       return {
-        label: "Catch up on ventures",
-        hint:
-          status.venturesMissingPulse > 0
-            ? `${status.venturesMissingPulse} venture${status.venturesMissingPulse === 1 ? " hasn't" : "s haven't"} had a pulse in over a week.`
-            : "It's been more than two weeks since you walked through everything together.",
-        variant: "default",
+        title: "Catch up on pulses",
+        hint: `${list} ${missing.length === 1 ? "hasn't" : "haven't"} had a pulse in over a week.`,
+        buttonLabel,
+        ventureIds: ids,
         prominent: true,
       };
     case "due":
       return {
-        label: "Time for your weekly pulse",
-        hint: when ? `Last full pulse was ${when}.` : "About a week since you checked everything.",
-        variant: "default",
+        title: "Time for your weekly pulse",
+        hint: `Still due this week: ${list}.`,
+        buttonLabel,
+        ventureIds: ids,
         prominent: true,
       };
     case "current":
       return {
-        label: "Update pulse",
-        hint:
-          status.venturesMissingPulse > 0
-            ? when
-              ? `Last full pulse was ${when}. ${status.venturesMissingPulse} venture${status.venturesMissingPulse === 1 ? " still needs" : "s still need"} a pulse this week.`
-              : `${status.venturesMissingPulse} venture${status.venturesMissingPulse === 1 ? " still needs" : "s still need"} a pulse this week.`
-            : when
-              ? `You're caught up — last pulse ${when}. Update anytime something changes.`
-              : "You're caught up this week.",
-        variant: "ghost",
-        prominent: false,
+        title: missing.length === 1 ? `${missing[0].name} needs a pulse` : `${missing.length} ventures need a pulse`,
+        hint: `${list} ${missing.length === 1 ? "hasn't" : "haven't"} been pulsed this week.`,
+        buttonLabel,
+        ventureIds: ids,
+        prominent: true,
       };
   }
 }
@@ -83,11 +102,15 @@ export function venturePulseWizardTitle(ventureName: string): string {
   return `Pulse · ${ventureName}`;
 }
 
+export function remainingPulseWizardTitle(count: number): string {
+  return `Pulse · ${count} remaining`;
+}
+
 export function portfolioHeaderLine(ritual: PortfolioRitualStatus, attentionCount: number): string {
   if (attentionCount > 0) {
     return `${attentionCount} venture${attentionCount === 1 ? " needs" : "s need"} attention — see your priority list below.`;
   }
-  if (ritual.status === "current" && ritual.lastFullRitualAt && ritual.daysSinceLastRitual != null) {
+  if (ritual.venturesNeedingPulse.length === 0 && ritual.lastFullRitualAt && ritual.daysSinceLastRitual != null) {
     const when =
       ritual.daysSinceLastRitual === 0
         ? "today"

@@ -1,10 +1,10 @@
 import { listActiveVentures } from "./ventures";
 import { getDb } from "./db";
 import { daysAgoMs } from "./format";
-import type { PortfolioRitualStatus, RitualStatus } from "./ritual-copy";
+import type { PortfolioRitualStatus, RitualStatus, VenturePulseNeed } from "./ritual-copy";
 
-export type { PortfolioRitualStatus, RitualStatus } from "./ritual-copy";
-export { ritualButtonCopy, ritualWizardTitle, portfolioHeaderLine } from "./ritual-copy";
+export type { PortfolioRitualStatus, RitualStatus, VenturePulseNeed } from "./ritual-copy";
+export { pulseBannerCopy, ritualWizardTitle, portfolioHeaderLine, remainingPulseWizardTitle } from "./ritual-copy";
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const OVERDUE_MS = 14 * 24 * 60 * 60 * 1000;
@@ -39,19 +39,23 @@ export async function getPortfolioRitualStatus(): Promise<PortfolioRitualStatus>
       daysSinceLastRitual: null,
       activeVentureCount: 0,
       venturesMissingPulse: 0,
+      venturesNeedingPulse: [],
     };
   }
 
   const lastFullRitualAt = await getLastFullRitualAt(activeVentureCount);
   const weekCutoff = daysAgoMs(7);
 
-  let venturesMissingPulse = 0;
+  const venturesNeedingPulse: VenturePulseNeed[] = [];
   const { getLatestCheckin } = await import("./checkins");
   for (const v of activeVentures) {
     const latest = await getLatestCheckin(v.id);
-    if (!latest || latest.checkedAt < weekCutoff) venturesMissingPulse++;
+    if (!latest || latest.checkedAt < weekCutoff) {
+      venturesNeedingPulse.push({ id: v.id, name: v.name, slug: v.slug });
+    }
   }
 
+  const venturesMissingPulse = venturesNeedingPulse.length;
   const age = lastFullRitualAt ? Date.now() - lastFullRitualAt : null;
   const daysSinceLastRitual = age != null ? Math.floor(age / (24 * 60 * 60 * 1000)) : null;
 
@@ -65,7 +69,6 @@ export async function getPortfolioRitualStatus(): Promise<PortfolioRitualStatus>
   } else if (age! > WEEK_MS) {
     status = "due";
   } else {
-    // Full portfolio pulse within the last week — don't re-prompt the weekly ritual.
     status = "current";
   }
 
@@ -75,5 +78,6 @@ export async function getPortfolioRitualStatus(): Promise<PortfolioRitualStatus>
     daysSinceLastRitual,
     activeVentureCount,
     venturesMissingPulse,
+    venturesNeedingPulse,
   };
 }
