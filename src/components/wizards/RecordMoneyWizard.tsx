@@ -319,6 +319,16 @@ function RecordMoneyInner({
   );
 }
 
+function initialStepForPrefill(prefill?: {
+  ventureId?: string;
+  clientId?: string;
+  kind?: EntryKind;
+}): number {
+  if (prefill?.kind && prefill?.ventureId) return 2;
+  if (prefill?.kind) return 1;
+  return 0;
+}
+
 export function RecordMoneyWizard({
   open,
   onOpenChange,
@@ -342,9 +352,17 @@ export function RecordMoneyWizard({
     () => JSON.stringify({ open, prefill }),
     [open, prefill]
   );
+  const initialStep = initialStepForPrefill(prefill);
 
   return (
-    <WizardShell open={open} onOpenChange={onOpenChange} title="Record money" totalSteps={6}>
+    <WizardShell
+      key={key}
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Record money"
+      totalSteps={6}
+      initialStep={initialStep}
+    >
       <RecordMoneyInner
         key={key}
         ventures={ventures}

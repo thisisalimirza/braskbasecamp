@@ -19,6 +19,7 @@ import { listClients } from "@/lib/clients";
 import { listCategories } from "@/lib/categories";
 import { STUDIO_SLUG } from "@/lib/venture-config";
 import { formatDate } from "@/lib/format";
+import { VentureMoneyActions } from "@/components/ventures/RecordMoneyButton";
 import { cn } from "@/lib/utils";
 
 export default async function VenturePage({
@@ -112,6 +113,7 @@ export default async function VenturePage({
             trend={trendValues}
             trendLabels={trendLabels}
           />
+          <VentureMoneyActions ventureId={venture.id} ventureName={venture.name} />
           <SectionCard
             title="Health metrics"
             description="Separate from money — track subscribers, users, clients, or custom counts"
@@ -122,7 +124,13 @@ export default async function VenturePage({
 
         <TabsContent value="ledger">
           <SectionCard title="Money ledger" description="All revenue and costs for this venture">
-            <PnlEntriesTable entries={entries} ventureSlug={slug} categories={allCategories} />
+            <PnlEntriesTable
+              entries={entries}
+              ventureSlug={slug}
+              ventureId={venture.id}
+              ventureName={venture.name}
+              categories={allCategories}
+            />
           </SectionCard>
         </TabsContent>
 

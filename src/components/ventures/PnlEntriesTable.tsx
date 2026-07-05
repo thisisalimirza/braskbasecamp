@@ -31,14 +31,19 @@ import { formatCents, formatDate, msToDateInput, categoryLabel } from "@/lib/for
 import type { PnlEntry } from "@/lib/pnl";
 import type { Category } from "@/lib/categories";
 import { cn } from "@/lib/utils";
+import { LedgerEmptyState, VentureMoneyActions } from "@/components/ventures/RecordMoneyButton";
 
 export function PnlEntriesTable({
   entries,
   ventureSlug,
+  ventureId,
+  ventureName,
   categories,
 }: {
   entries: PnlEntry[];
   ventureSlug: string;
+  ventureId: string;
+  ventureName: string;
   categories: Category[];
 }) {
   const [editing, setEditing] = useState<PnlEntry | null>(null);
@@ -46,6 +51,12 @@ export function PnlEntriesTable({
 
   return (
     <>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <VentureMoneyActions ventureId={ventureId} ventureName={ventureName} compact />
+      </div>
+      {entries.length === 0 ? (
+        <LedgerEmptyState ventureId={ventureId} ventureName={ventureName} />
+      ) : (
       <Table>
         <TableHeader>
           <TableRow>
@@ -58,13 +69,6 @@ export function PnlEntriesTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {entries.length === 0 && (
-            <TableRow>
-              <TableCell colSpan={hasClients ? 6 : 5} className="py-8 text-center text-muted-foreground">
-                No money logged yet. Use the + button to record revenue or costs.
-              </TableCell>
-            </TableRow>
-          )}
           {entries.map((e) => (
             <TableRow key={e.id}>
               <TableCell className="text-muted-foreground">{formatDate(e.occurredOn)}</TableCell>
@@ -96,6 +100,7 @@ export function PnlEntriesTable({
           ))}
         </TableBody>
       </Table>
+      )}
 
       {editing && (
         <EditEntryDialog
