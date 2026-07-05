@@ -434,7 +434,7 @@ export function VentureHealthTable({ summaries }: { summaries: VentureHealth[] }
         <p className="text-xs text-muted-foreground">
           {reorderMode
             ? "Drag ventures into priority order, then tap Done."
-            : "Tap amber chips to log what's happening. Next step is your main action."}
+            : "Amber chips = quick notes. Next step = the top priority (pulse, money, or plan)."}
         </p>
         <Button
           type="button"

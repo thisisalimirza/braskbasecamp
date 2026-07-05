@@ -23,7 +23,7 @@ const REASON_ACTIONS: Record<AttentionReason, (row: VentureHealth) => VentureAct
     label: "Update pulse",
     type: "pulse",
     ventureId: row.venture.id,
-    hint: "Marked as struggling — capture what's blocking progress",
+    hint: "Marked as struggling — update momentum and what's blocking",
   }),
   stale_checkin: (row) => ({
     label: "Run a pulse",
@@ -32,10 +32,11 @@ const REASON_ACTIONS: Record<AttentionReason, (row: VentureHealth) => VentureAct
     hint: "No fresh pulse in over two weeks",
   }),
   stale_pnl: (row) => ({
-    label: "Log update",
-    type: "pulse",
+    label: "Log money",
+    type: "record_revenue",
     ventureId: row.venture.id,
-    hint: "No money logged — note what's going on or log revenue",
+    kind: "revenue",
+    hint: "No money logged in 2+ weeks — record revenue or tap the amber chip to explain",
   }),
   new_negative_month: (row) => ({
     label: "Review spending",
@@ -81,7 +82,7 @@ export function friendlyActionHint(reason: AttentionReason): string {
     case "stale_checkin":
       return "No fresh pulse in over two weeks";
     case "stale_pnl":
-      return "No money logged recently";
+      return "No money logged in over two weeks";
     case "new_negative_month":
       return "Spending more than earning this month";
   }
