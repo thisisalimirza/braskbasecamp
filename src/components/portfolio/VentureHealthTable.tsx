@@ -43,7 +43,6 @@ import { reorderVenturesPriorityAction } from "@/app/actions";
 import type { VentureHealth } from "@/lib/venture-health";
 import { attentionHeadline, portfolioAttentionSnippet } from "@/lib/venture-display";
 import { MoneyTrendBadge } from "@/components/portfolio/MoneyTrendBadge";
-import { VentureQuickNoteDialog } from "@/components/portfolio/VentureQuickNoteDialog";
 import { cn } from "@/lib/utils";
 
 function TrajectoryBadge({ trajectory }: { trajectory: VentureHealth["trajectory"] }) {
@@ -82,29 +81,23 @@ function relativeDays(ms: number | null): string | null {
 
 function StatusChip({
   label,
-  missing,
-  onClick,
+  attention,
 }: {
   label: string;
-  missing?: boolean;
-  onClick?: () => void;
+  attention?: boolean;
 }) {
-  const className = cn(
-    "inline-flex max-w-full items-center rounded-full px-2.5 py-1 text-[11px] font-medium leading-tight",
-    missing
-      ? "border border-amber-300/90 bg-amber-100 text-amber-950 hover:bg-amber-200/90 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-100"
-      : "bg-muted/60 text-muted-foreground"
+  return (
+    <span
+      className={cn(
+        "inline-flex max-w-full items-center rounded-full px-2.5 py-1 text-[11px] font-medium leading-tight",
+        attention
+          ? "border border-amber-300/90 bg-amber-100 text-amber-950 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-100"
+          : "bg-muted/60 text-muted-foreground"
+      )}
+    >
+      {label}
+    </span>
   );
-
-  if (missing && onClick) {
-    return (
-      <button type="button" onClick={onClick} className={cn(className, "cursor-pointer text-left")}>
-        {label}
-      </button>
-    );
-  }
-
-  return <span className={className}>{label}</span>;
 }
 
 function NextAction({ action }: { action: VentureAction }) {
@@ -201,14 +194,12 @@ function VentureRow({
   cutoff,
   rank,
   reorderMode,
-  onLogNote,
   sortable,
 }: {
   row: VentureHealth;
   cutoff: number;
   rank: number;
   reorderMode: boolean;
-  onLogNote: (row: VentureHealth, context: "pulse" | "money") => void;
   sortable?: {
     attributes: ReturnType<typeof useSortable>["attributes"];
     listeners: ReturnType<typeof useSortable>["listeners"];
@@ -290,15 +281,6 @@ function VentureRow({
             Next: {row.focusPlanItem.title} →
           </Link>
         )}
-        {!blockerText && pulseMissing && (
-          <button
-            type="button"
-            className="mt-1 text-xs text-amber-800 underline-offset-2 hover:underline dark:text-amber-300"
-            onClick={() => onLogNote(row, "pulse")}
-          >
-            Log what&apos;s happening →
-          </button>
-        )}
       </td>
       <td className="py-4 pr-4 align-middle">
         <div className="flex items-center gap-2">
@@ -319,28 +301,18 @@ function VentureRow({
         {row.trajectory ? (
           <TrajectoryBadge trajectory={row.trajectory} />
         ) : (
-          <StatusChip
-            label="No pulse yet"
-            missing
-            onClick={() => onLogNote(row, "pulse")}
-          />
+          <span className="text-xs text-muted-foreground">—</span>
         )}
       </td>
       <td className="py-4 pr-4 align-middle">
         <div className="flex flex-col gap-1.5">
           <StatusChip
-            label={pulseLabel ? `Pulse · ${pulseLabel}` : "Pulse · not yet"}
-            missing={pulseMissing}
-            onClick={pulseMissing ? () => onLogNote(row, "pulse") : undefined}
+            label={pulseLabel ? `Pulse · ${pulseLabel}` : "Pulse · missing"}
+            attention={pulseMissing}
           />
           <StatusChip
-            label={moneyLabel ? `Money · ${moneyLabel}` : "Money · not logged yet"}
-            missing={moneyMissing}
-            onClick={
-              moneyMissing
-                ? () => onLogNote(row, "money")
-                : undefined
-            }
+            label={moneyLabel ? `Money · ${moneyLabel}` : "Money · missing"}
+            attention={moneyMissing}
           />
         </div>
       </td>
@@ -363,10 +335,6 @@ export function VentureHealthTable({ summaries }: { summaries: VentureHealth[] }
   const [rows, setRows] = useState(summaries);
   const [reorderMode, setReorderMode] = useState(false);
   const [pending, startTransition] = useTransition();
-  const [noteTarget, setNoteTarget] = useState<{
-    row: VentureHealth;
-    context: "pulse" | "money";
-  } | null>(null);
 
   useEffect(() => {
     setRows(summaries);
@@ -412,7 +380,6 @@ export function VentureHealthTable({ summaries }: { summaries: VentureHealth[] }
             cutoff={cutoff}
             rank={index + 1}
             reorderMode
-            onLogNote={(r, ctx) => setNoteTarget({ row: r, context: ctx })}
           />
         ) : (
           <VentureRow
@@ -421,7 +388,6 @@ export function VentureHealthTable({ summaries }: { summaries: VentureHealth[] }
             cutoff={cutoff}
             rank={index + 1}
             reorderMode={false}
-            onLogNote={(r, ctx) => setNoteTarget({ row: r, context: ctx })}
           />
         )
       )}
@@ -434,7 +400,7 @@ export function VentureHealthTable({ summaries }: { summaries: VentureHealth[] }
         <p className="text-xs text-muted-foreground">
           {reorderMode
             ? "Drag ventures into priority order, then tap Done."
-            : "Amber chips = quick notes. Next step = the top priority (pulse, money, or plan)."}
+            : "Status shows pulse & money timing. Use Next step for the one action to take."}
         </p>
         <Button
           type="button"
@@ -492,27 +458,6 @@ export function VentureHealthTable({ summaries }: { summaries: VentureHealth[] }
           </table>
         )}
       </div>
-
-      {noteTarget && (
-        <VentureQuickNoteDialog
-          open
-          onOpenChange={(open) => !open && setNoteTarget(null)}
-          ventureId={noteTarget.row.venture.id}
-          ventureName={noteTarget.row.venture.name}
-          ventureSlug={noteTarget.row.venture.slug}
-          defaultTrajectory={noteTarget.row.trajectory ?? "flat"}
-          title={
-            noteTarget.context === "money"
-              ? `Why no money logged · ${noteTarget.row.venture.name}`
-              : `Log update · ${noteTarget.row.venture.name}`
-          }
-          description={
-            noteTarget.context === "money"
-              ? "Explain the situation — waiting on revenue, not tracking yet, paused spend, etc. This saves as your venture pulse note."
-              : "Capture what's happening or what's blocking. Shows on your portfolio and venture page."
-          }
-        />
-      )}
     </div>
   );
 }
