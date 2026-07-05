@@ -12,6 +12,7 @@ import * as reference from "@/lib/reference";
 import * as clients from "@/lib/clients";
 import * as blockers from "@/lib/blockers";
 import * as plan from "@/lib/plan";
+import * as settings from "@/lib/settings";
 import { dateToMs, dollarsToCents } from "@/lib/format";
 import type { VentureType, VentureStatus } from "@/lib/ventures";
 import type { PnlEntryType, OwnerDirection } from "@/lib/pnl";
@@ -40,6 +41,7 @@ function revalidatePortfolio() {
   revalidatePath("/");
   revalidatePath("/ventures");
   revalidatePath("/tasks");
+  revalidatePath("/settings");
 }
 
 function revalidateVenture(slug?: string) {
@@ -236,6 +238,9 @@ export async function saveWeeklyCheckinAction(
     ventureId: string;
     trajectory: Trajectory;
     note?: string | null;
+    updateBlocker?: boolean;
+    nextStepTitle?: string | null;
+    nextStepKpiDefinitionId?: string | null;
     kpiUpdates?: { kpiDefinitionId: string; value: number }[];
   }[]
 ): Promise<FormState> {
@@ -248,11 +253,16 @@ export async function saveWeeklyCheckinAction(
         trajectory: item.trajectory,
         note: item.note,
       });
-      if (item.note?.trim()) {
+      const noteTrimmed = item.note?.trim();
+      const shouldSyncBlocker =
+        !!noteTrimmed &&
+        (item.updateBlocker === true ||
+          (item.updateBlocker !== false && item.trajectory === "down"));
+      if (shouldSyncBlocker && noteTrimmed) {
         await blockers.syncPrimaryBlockerFromCheckin({
           ventureId: item.ventureId,
           checkinId,
-          body: item.note.trim(),
+          body: noteTrimmed,
         });
       }
       if (item.kpiUpdates) {
@@ -263,6 +273,19 @@ export async function saveWeeklyCheckinAction(
             recordedOn: checkedAt,
           });
         }
+      }
+      const nextTitle = item.nextStepTitle?.trim();
+      if (nextTitle) {
+        const primary = shouldSyncBlocker
+          ? (await blockers.getPrimaryBlocker(item.ventureId))?.id ?? null
+          : null;
+        await plan.createPlanItem({
+          ventureId: item.ventureId,
+          title: nextTitle,
+          status: "next",
+          blockerId: primary,
+          kpiDefinitionId: item.nextStepKpiDefinitionId ?? null,
+        });
       }
     }
     revalidatePortfolio();
@@ -328,6 +351,7 @@ export async function createPlanItemAction(input: {
   notes?: string | null;
   status?: PlanItemStatus;
   blockerId?: string | null;
+  kpiDefinitionId?: string | null;
   ventureSlug?: string;
 }): Promise<FormState> {
   return run(async () => {
@@ -338,7 +362,7 @@ export async function createPlanItemAction(input: {
 
 export async function updatePlanItemAction(
   id: string,
-  input: Partial<{ title: string; notes: string | null; blockerId: string | null }>,
+  input: Partial<{ title: string; notes: string | null; blockerId: string | null; kpiDefinitionId: string | null }>,
   ventureSlug?: string
 ): Promise<FormState> {
   return run(async () => {
@@ -363,6 +387,14 @@ export async function deletePlanItemAction(id: string, ventureSlug?: string): Pr
   return run(async () => {
     await plan.deletePlanItem(id);
     revalidateVenture(ventureSlug);
+  });
+}
+
+export async function setHardWipLimitsAction(enabled: boolean): Promise<FormState> {
+  return run(async () => {
+    await settings.setHardWipLimits(enabled);
+    revalidatePortfolio();
+    revalidatePath("/settings");
   });
 }
 

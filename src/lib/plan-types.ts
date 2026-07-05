@@ -7,8 +7,11 @@ export type PlanItem = {
   notes: string | null;
   status: PlanItemStatus;
   blockerId: string | null;
+  kpiDefinitionId: string | null;
+  kpiName: string | null;
   sortOrder: number;
   createdAt: number;
+  statusChangedAt: number;
   completedAt: number | null;
 };
 
@@ -33,8 +36,11 @@ export function rowToPlanItem(row: Record<string, unknown>): PlanItem {
     notes: row.notes == null ? null : String(row.notes),
     status: String(row.status) as PlanItemStatus,
     blockerId: row.blocker_id == null ? null : String(row.blocker_id),
+    kpiDefinitionId: row.kpi_definition_id == null ? null : String(row.kpi_definition_id),
+    kpiName: row.kpi_name == null ? null : String(row.kpi_name),
     sortOrder: Number(row.sort_order),
     createdAt: Number(row.created_at),
+    statusChangedAt: Number(row.status_changed_at ?? row.created_at),
     completedAt: row.completed_at == null ? null : Number(row.completed_at),
   };
 }

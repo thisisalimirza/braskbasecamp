@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { AlertCircle, ClipboardList, Star, ArrowRight, TrendingDown, TrendingUp, Minus } from "lucide-react";
 import { VentureDashboardCard } from "@/components/ventures/VentureDashboardCard";
+import { PlanKpiBadge } from "@/components/plan/PlanKpiBadge";
 import { formatDate, daysAgoMs } from "@/lib/format";
 import { TRAJECTORY_LABELS, planStatusLabel } from "@/lib/next-actions";
 import { openWeeklyCheckinForVenture, openRecordMoneyPrefilled } from "@/components/AppShell";
@@ -24,7 +25,7 @@ export function VentureStatusPanel({
   ventureSlug: string;
   primaryBlocker: { id: string; body: string } | null;
   openBlockerCount: number;
-  focusPlanItem: { id: string; title: string; status: PlanItemStatus } | null;
+  focusPlanItem: { id: string; title: string; status: PlanItemStatus; kpiName: string | null } | null;
 }) {
   const cutoff = daysAgoMs(14);
   const weekCutoff = daysAgoMs(7);
@@ -93,6 +94,11 @@ export function VentureStatusPanel({
               {planStatusLabel(focusPlanItem.status)}
             </p>
             <p className="mt-1 text-sm font-medium leading-snug">{focusPlanItem.title}</p>
+            {focusPlanItem.kpiName && (
+              <div className="mt-2">
+                <PlanKpiBadge name={focusPlanItem.kpiName} />
+              </div>
+            )}
           </div>
           <ArrowRight className="mt-0.5 size-4 shrink-0 text-primary/60" />
         </Link>

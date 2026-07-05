@@ -25,7 +25,7 @@ export function VenturesPageClient({
       <PageHeader
         eyebrow="Portfolio"
         title="Ventures"
-        description="Product lines under Brask Group — money and health tracked per venture."
+        description="Setup, money history, and reference — day-to-day work lives on Portfolio and Tasks."
         actions={<Button onClick={() => setNewOpen(true)}>New venture</Button>}
       />
 

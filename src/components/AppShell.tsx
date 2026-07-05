@@ -3,12 +3,13 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Plus, Tent } from "lucide-react";
+import { ClipboardList, DollarSign, Plus, Tent } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { RecordMoneyWizard } from "@/components/wizards/RecordMoneyWizard";
 import { WeeklyCheckinWizard } from "@/components/wizards/WeeklyCheckinWizard";
-import type { VentureCheckinDraft } from "@/components/wizards/weekly-checkin-types";
+import type { VentureCheckinDraft, PulseReviewContext } from "@/components/wizards/weekly-checkin-types";
+import type { GlobalPlanItem } from "@/lib/plan-types";
 import { logout } from "@/app/actions";
 import type { Venture } from "@/lib/ventures";
 import type { Category } from "@/lib/categories";
@@ -20,9 +21,10 @@ import { cn } from "@/lib/utils";
 type RecordPrefill = { ventureId?: string; clientId?: string; kind?: "revenue" | "cost" | "owner" };
 
 const NAV = [
-  { href: "/", label: "Portfolio" },
-  { href: "/tasks", label: "Tasks" },
-  { href: "/ventures", label: "Ventures" },
+  { href: "/", label: "Portfolio", hint: "Pulse & priorities" },
+  { href: "/tasks", label: "Tasks", hint: "Do the work" },
+  { href: "/ventures", label: "Ventures", hint: "Setup & history" },
+  { href: "/settings", label: "Settings", hint: "WIP & preferences" },
 ];
 
 export function AppShell({
@@ -34,6 +36,8 @@ export function AppShell({
   lastVentureId,
   checkinDrafts,
   ritual,
+  recentlyDone,
+  portfolioDoingCount,
 }: {
   children: React.ReactNode;
   ventures: Venture[];
@@ -43,6 +47,8 @@ export function AppShell({
   lastVentureId?: string;
   checkinDrafts: VentureCheckinDraft[];
   ritual: PortfolioRitualStatus;
+  recentlyDone: GlobalPlanItem[];
+  portfolioDoingCount: number;
 }) {
   const pathname = usePathname();
   const wideLayout = pathname.startsWith("/tasks");
@@ -89,12 +95,27 @@ export function AppShell({
       ? checkinDrafts
       : checkinDrafts.filter((d) => checkinFilter.includes(d.venture.id));
 
+  const pulseDue = ritual.venturesNeedingPulse.length > 0;
+
+  const reviewContext: PulseReviewContext = {
+    recentlyDone,
+    pulseStreakWeeks: ritual.consecutiveFullPulseWeeks,
+  };
+
   const checkinTitle =
     checkinFilter !== "all" && activeCheckinDrafts.length === 1
       ? venturePulseWizardTitle(activeCheckinDrafts[0].venture.name)
       : checkinFilter !== "all" && activeCheckinDrafts.length > 1
         ? remainingPulseWizardTitle(activeCheckinDrafts.length)
         : ritualWizardTitle(ritual.status);
+
+  const openPulseFromFab = () => {
+    if (pulseDue) {
+      openCheckin(ritual.venturesNeedingPulse.map((v) => v.id));
+    } else {
+      openCheckin();
+    }
+  };
 
   useEffect(() => {
     const w = window as Window & {
@@ -125,15 +146,16 @@ export function AppShell({
             </span>
             Base Camp
           </Link>
-          <nav className="flex flex-1 gap-1">
+          <nav className="-mx-1 flex flex-1 gap-0.5 overflow-x-auto px-1 scrollbar-none">
             {NAV.map((item) => {
               const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
               return (
                 <Link
                   key={item.href}
                   href={item.href}
+                  title={item.hint}
                   className={cn(
-                    "rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
+                    "shrink-0 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors sm:px-3",
                     active ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground"
                   )}
                 >
@@ -142,6 +164,20 @@ export function AppShell({
               );
             })}
           </nav>
+          {pulseDue && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="hidden gap-1.5 border-primary/30 text-primary sm:inline-flex"
+              onClick={() => openCheckin(ritual.venturesNeedingPulse.map((v) => v.id))}
+            >
+              <ClipboardList className="size-3.5" />
+              {ritual.venturesNeedingPulse.length === 1
+                ? "Pulse due"
+                : `${ritual.venturesNeedingPulse.length} pulses due`}
+            </Button>
+          )}
           <form action={logout}>
             <Button type="submit" variant="ghost" size="sm" className="text-muted-foreground">
               Sign out
@@ -159,16 +195,52 @@ export function AppShell({
         {children}
       </main>
 
-      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center pb-6">
-        <Button
-          type="button"
-          size="lg"
-          className="pointer-events-auto h-12 gap-2 rounded-full px-6 shadow-lg transition-shadow hover:shadow-xl"
-          onClick={() => openRecordMoney()}
-        >
-          <Plus className="size-5" />
-          Record money
-        </Button>
+      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center gap-2 pb-6">
+        {pulseDue ? (
+          <>
+            <Button
+              type="button"
+              size="lg"
+              className="pointer-events-auto h-12 gap-2 rounded-full px-6 shadow-lg transition-shadow hover:shadow-xl"
+              onClick={openPulseFromFab}
+            >
+              <ClipboardList className="size-5" />
+              Run pulse
+            </Button>
+            <Button
+              type="button"
+              size="lg"
+              variant="outline"
+              className="pointer-events-auto h-12 gap-2 rounded-full border-border/80 bg-background/95 px-5 shadow-md backdrop-blur-sm"
+              onClick={() => openRecordMoney()}
+            >
+              <DollarSign className="size-4" />
+              <span className="hidden sm:inline">Money</span>
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button
+              type="button"
+              size="lg"
+              variant="outline"
+              className="pointer-events-auto h-12 gap-2 rounded-full border-border/80 bg-background/95 px-5 shadow-md backdrop-blur-sm"
+              onClick={() => openCheckin()}
+            >
+              <ClipboardList className="size-4" />
+              <span className="hidden sm:inline">Pulse</span>
+            </Button>
+            <Button
+              type="button"
+              size="lg"
+              className="pointer-events-auto h-12 gap-2 rounded-full px-6 shadow-lg transition-shadow hover:shadow-xl"
+              onClick={() => openRecordMoney()}
+            >
+              <Plus className="size-5" />
+              Record money
+            </Button>
+          </>
+        )}
       </div>
 
       <RecordMoneyWizard
@@ -188,6 +260,7 @@ export function AppShell({
           open={checkinOpen}
           onOpenChange={handleCheckinOpenChange}
           initial={activeCheckinDrafts}
+          reviewContext={reviewContext}
           title={checkinTitle}
           singleVenture={checkinFilter !== "all" && activeCheckinDrafts.length === 1}
         />

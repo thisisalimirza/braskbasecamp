@@ -15,6 +15,7 @@ export type PortfolioRitualStatus = {
   activeVentureCount: number;
   venturesMissingPulse: number;
   venturesNeedingPulse: VenturePulseNeed[];
+  consecutiveFullPulseWeeks: number;
 };
 
 export type PulseBannerCopy = {
@@ -106,9 +107,14 @@ export function remainingPulseWizardTitle(count: number): string {
   return `Pulse · ${count} remaining`;
 }
 
-export function portfolioHeaderLine(ritual: PortfolioRitualStatus, attentionCount: number): string {
-  if (attentionCount > 0) {
-    return `${attentionCount} venture${attentionCount === 1 ? " needs" : "s need"} attention — see your priority list below.`;
+export function portfolioHeaderLine(
+  ritual: PortfolioRitualStatus,
+  strugglingVentures: { name: string }[]
+): string {
+  const count = strugglingVentures.length;
+  if (count > 0) {
+    const list = formatVentureList(strugglingVentures.map((v) => v.name));
+    return `${count} venture${count === 1 ? " is" : "s are"} struggling (${list}) — see your priority list below.`;
   }
   if (ritual.venturesNeedingPulse.length === 0 && ritual.lastFullRitualAt && ritual.daysSinceLastRitual != null) {
     const when =

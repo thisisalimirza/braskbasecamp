@@ -1,8 +1,9 @@
 import { PageHeader } from "@/components/ui/page-header";
 import { GlobalTasksBoard } from "@/components/tasks/GlobalTasksBoard";
-import { listAllPlanItems } from "@/lib/plan";
+import { listAllPlanItems, countPortfolioDoingItems } from "@/lib/plan";
 import { listAllOpenBlockers } from "@/lib/blockers";
 import { listActiveVentures } from "@/lib/ventures";
+import { listKpiDefinitionsForVentures } from "@/lib/kpis";
 import type { VentureBlocker } from "@/lib/blocker-types";
 
 export default async function TasksPage() {
@@ -10,6 +11,12 @@ export default async function TasksPage() {
     listAllPlanItems(),
     listActiveVentures(),
     listAllOpenBlockers(),
+  ]);
+
+  const ventureIds = ventures.map((v) => v.id);
+  const [kpisByVenture, portfolioDoingCount] = await Promise.all([
+    listKpiDefinitionsForVentures(ventureIds),
+    countPortfolioDoingItems(),
   ]);
 
   const blockersByVenture: Record<string, VentureBlocker[]> = {};
@@ -24,12 +31,14 @@ export default async function TasksPage() {
       <PageHeader
         eyebrow="Portfolio"
         title="Tasks"
-        description="Every planned step across your ventures — board, list, filters, and drag-and-drop."
+        description="Do today's minimum steps — board and full list when you need the big picture."
       />
       <GlobalTasksBoard
         initialItems={items}
         ventures={ventures}
         blockersByVenture={blockersByVenture}
+        kpisByVenture={kpisByVenture}
+        portfolioDoingCount={portfolioDoingCount}
       />
     </div>
   );

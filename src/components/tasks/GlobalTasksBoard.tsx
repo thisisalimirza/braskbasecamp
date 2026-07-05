@@ -17,7 +17,6 @@ import {
 import {
   Filter,
   LayoutGrid,
-  Link2,
   List,
   Plus,
   Search,
@@ -52,14 +51,19 @@ import {
 } from "@/app/actions";
 import { PLAN_COLUMNS, type GlobalPlanItem, type PlanItemStatus } from "@/lib/plan-types";
 import type { VentureBlocker } from "@/lib/blocker-types";
+import type { KpiDefinition } from "@/lib/kpis";
 import type { Venture } from "@/lib/ventures";
+import { PlanTaskLinks } from "@/components/plan/PlanKpiBadge";
+import { PlanKpiSelect } from "@/components/plan/PlanKpiSelect";
 import { planStatusLabel } from "@/lib/next-actions";
+import { stepAgingLabel, evaluateWipLimits } from "@/lib/plan-wip";
+import { useAppSettings } from "@/components/AppSettingsProvider";
 import { cn } from "@/lib/utils";
 
 const NO_BLOCKER = "none";
 const ALL_VENTURES = "all";
 
-type ViewMode = "board" | "list";
+type ViewMode = "today" | "board" | "list";
 
 function columnLabel(status: PlanItemStatus): string {
   return PLAN_COLUMNS.find((c) => c.id === status)?.label ?? status;
@@ -69,14 +73,19 @@ export function GlobalTasksBoard({
   initialItems,
   ventures,
   blockersByVenture,
+  kpisByVenture,
+  portfolioDoingCount = 0,
 }: {
   initialItems: GlobalPlanItem[];
   ventures: Venture[];
   blockersByVenture: Record<string, VentureBlocker[]>;
+  kpisByVenture: Record<string, KpiDefinition[]>;
+  portfolioDoingCount?: number;
 }) {
   const router = useRouter();
+  const { hardWipLimits } = useAppSettings();
   const [items, setItems] = useState(initialItems);
-  const [view, setView] = useState<ViewMode>("board");
+  const [view, setView] = useState<ViewMode>("today");
   const [search, setSearch] = useState("");
   const [ventureFilter, setVentureFilter] = useState(ALL_VENTURES);
   const [statusFilter, setStatusFilter] = useState<PlanItemStatus | "active" | "all">("active");
@@ -91,11 +100,13 @@ export function GlobalTasksBoard({
     notes: "",
     status: "backlog" as PlanItemStatus,
     blockerId: "",
+    kpiDefinitionId: "",
   });
   const [editForm, setEditForm] = useState({
     title: "",
     notes: "",
     blockerId: "",
+    kpiDefinitionId: "",
   });
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
@@ -121,10 +132,40 @@ export function GlobalTasksBoard({
         item.title.toLowerCase().includes(q) ||
         item.notes?.toLowerCase().includes(q) ||
         item.ventureName.toLowerCase().includes(q) ||
-        item.blockerBody?.toLowerCase().includes(q)
+        item.blockerBody?.toLowerCase().includes(q) ||
+        item.kpiName?.toLowerCase().includes(q)
       );
     });
   }, [items, search, ventureFilter, statusFilter, blockerOnly, showDone, view]);
+
+  const todayItems = useMemo(() => {
+    const doing = filtered.filter((i) => i.status === "doing");
+    const venturesWithDoing = new Set(doing.map((i) => i.ventureId));
+    const nextOnly = filtered.filter(
+      (i) => i.status === "next" && !venturesWithDoing.has(i.ventureId)
+    );
+    return [...doing, ...nextOnly];
+  }, [filtered]);
+
+  const handleMoveWithWip = async (item: GlobalPlanItem, newStatus: PlanItemStatus) => {
+    if (newStatus === "doing" && item.status !== "doing") {
+      const ventureItems = items.filter((i) => i.ventureId === item.ventureId);
+      const { allowed, message } = evaluateWipLimits({
+        hard: hardWipLimits,
+        ventureItems,
+        portfolioDoing: portfolioDoingCount,
+        movingItemId: item.id,
+        currentStatus: item.status,
+        targetStatus: newStatus,
+      });
+      if (!allowed) {
+        toast.error(message ?? "WIP limit reached");
+        return;
+      }
+      if (message) toast.message("Heads up", { description: message });
+    }
+    await handleMove(item, newStatus);
+  };
 
   const byStatus = (status: PlanItemStatus) =>
     filtered.filter((i) => i.status === status).sort((a, b) => a.sortOrder - b.sortOrder);
@@ -142,7 +183,9 @@ export function GlobalTasksBoard({
   );
 
   const addVentureBlockers = blockersByVenture[addForm.ventureId] ?? [];
+  const addVentureKpis = kpisByVenture[addForm.ventureId] ?? [];
   const editVentureBlockers = editItem ? (blockersByVenture[editItem.ventureId] ?? []) : [];
+  const editVentureKpis = editItem ? (kpisByVenture[editItem.ventureId] ?? []) : [];
 
   const handleMove = async (item: GlobalPlanItem, newStatus: PlanItemStatus) => {
     if (item.status === newStatus) return;
@@ -184,12 +227,13 @@ export function GlobalTasksBoard({
       notes: addForm.notes.trim() || null,
       status: addForm.status,
       blockerId: addForm.blockerId || null,
+      kpiDefinitionId: addForm.kpiDefinitionId || null,
       ventureSlug: venture?.slug,
     });
     if (res.error) toast.error(res.error);
     else {
       toast.success("Task added");
-      setAddForm((f) => ({ ...f, title: "", notes: "", blockerId: "" }));
+      setAddForm((f) => ({ ...f, title: "", notes: "", blockerId: "", kpiDefinitionId: "" }));
       setAddOpen(false);
       refresh();
     }
@@ -201,6 +245,7 @@ export function GlobalTasksBoard({
       title: item.title,
       notes: item.notes ?? "",
       blockerId: item.blockerId ?? "",
+      kpiDefinitionId: item.kpiDefinitionId ?? "",
     });
   };
 
@@ -212,6 +257,7 @@ export function GlobalTasksBoard({
         title: editForm.title.trim(),
         notes: editForm.notes.trim() || null,
         blockerId: editForm.blockerId || null,
+        kpiDefinitionId: editForm.kpiDefinitionId || null,
       },
       editItem.ventureSlug
     );
@@ -260,7 +306,7 @@ export function GlobalTasksBoard({
           <div className="relative min-w-[200px] flex-1">
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Search tasks, ventures, blockers…"
+              placeholder="Search tasks, ventures, blockers, KPIs…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="pl-9"
@@ -307,7 +353,6 @@ export function GlobalTasksBoard({
             className="gap-1.5"
             onClick={() => setBlockerOnly(!blockerOnly)}
           >
-            <Link2 className="size-3.5" />
             Blocker-linked
           </Button>
           {view === "board" && (
@@ -337,6 +382,16 @@ export function GlobalTasksBoard({
           </div>
           <div className="flex items-center gap-2">
             <div className="flex rounded-lg border border-border/70 p-0.5">
+              <button
+                type="button"
+                onClick={() => setView("today")}
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium",
+                  view === "today" ? "bg-background shadow-sm" : "text-muted-foreground"
+                )}
+              >
+                Today
+              </button>
               <button
                 type="button"
                 onClick={() => setView("board")}
@@ -381,6 +436,66 @@ export function GlobalTasksBoard({
             Add task
           </Button>
         </div>
+      ) : view === "today" ? (
+        <div className="space-y-2 rounded-2xl border border-border/80 bg-card p-4 shadow-sm">
+          <p className="text-xs text-muted-foreground">
+            In progress plus one next step per venture — your minimum for today.
+          </p>
+          {todayItems.length === 0 ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">
+              Nothing queued for today. Promote steps to Up next or In progress on the board.
+            </p>
+          ) : (
+            <ul className="space-y-2">
+              {todayItems.map((item) => {
+                const aging = stepAgingLabel(item);
+                return (
+                  <li
+                    key={item.id}
+                    className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border/70 p-3"
+                  >
+                    <button type="button" className="min-w-0 flex-1 text-left" onClick={() => openEdit(item)}>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-md bg-primary/[0.07] px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                          {item.ventureName}
+                        </span>
+                        <span className="text-[10px] uppercase text-muted-foreground">
+                          {planStatusLabel(item.status)}
+                        </span>
+                        {aging && (
+                          <span className="text-[10px] text-amber-800 dark:text-amber-300">{aging}</span>
+                        )}
+                      </div>
+                      <p className="mt-1 font-medium">{item.title}</p>
+                      <PlanTaskLinks className="mt-1.5" kpiName={item.kpiName} blockerBody={item.blockerBody} />
+                    </button>
+                    <div className="flex gap-1">
+                      {item.status !== "doing" && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 text-xs"
+                          onClick={() => handleMoveWithWip(item, "doing")}
+                        >
+                          Start
+                        </Button>
+                      )}
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="h-8 text-xs"
+                        onClick={() => handleMoveWithWip(item, "done")}
+                      >
+                        Done
+                      </Button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
       ) : view === "board" ? (
         <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
           <div className="flex gap-3 overflow-x-auto pb-4 min-h-[calc(100vh-280px)]">
@@ -400,7 +515,7 @@ export function GlobalTasksBoard({
           </DragOverlay>
         </DndContext>
       ) : (
-        <TaskListView items={filtered} onEdit={openEdit} onMove={handleMove} onDelete={handleDelete} />
+        <TaskListView items={filtered} onEdit={openEdit} onMove={handleMoveWithWip} onDelete={handleDelete} />
       )}
 
       {/* Add dialog */}
@@ -416,7 +531,7 @@ export function GlobalTasksBoard({
               <Select
                 value={addForm.ventureId}
                 onValueChange={(v) =>
-                  v && setAddForm((f) => ({ ...f, ventureId: v, blockerId: "" }))
+                  v && setAddForm((f) => ({ ...f, ventureId: v, blockerId: "", kpiDefinitionId: "" }))
                 }
               >
                 <SelectTrigger className="mt-1.5 w-full">
@@ -496,6 +611,12 @@ export function GlobalTasksBoard({
                 </Select>
               </div>
             )}
+            <PlanKpiSelect
+              id="global-task-kpi"
+              kpis={addVentureKpis}
+              value={addForm.kpiDefinitionId}
+              onChange={(kpiDefinitionId) => setAddForm((f) => ({ ...f, kpiDefinitionId }))}
+            />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddOpen(false)}>
@@ -571,6 +692,12 @@ export function GlobalTasksBoard({
                     </Select>
                   </div>
                 )}
+                <PlanKpiSelect
+                  id="global-edit-task-kpi"
+                  kpis={editVentureKpis}
+                  value={editForm.kpiDefinitionId}
+                  onChange={(kpiDefinitionId) => setEditForm((f) => ({ ...f, kpiDefinitionId }))}
+                />
                 <div className="flex flex-wrap gap-2">
                   {editItem.status !== "doing" && editItem.status !== "done" && (
                     <Button
@@ -756,12 +883,11 @@ function TaskCard({
           <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">{item.notes}</p>
         )}
       </button>
-      {item.blockerBody && (
-        <p className="mt-2 flex items-start gap-1 text-[11px] text-amber-800 dark:text-amber-300">
-          <Link2 className="mt-0.5 size-3 shrink-0" />
-          <span className="line-clamp-2">{item.blockerBody}</span>
-        </p>
-      )}
+      <PlanTaskLinks
+        className="mt-2"
+        kpiName={item.kpiName}
+        blockerBody={item.blockerBody}
+      />
     </div>
   );
 }
@@ -805,15 +931,14 @@ function TaskListView({
                     >
                       {item.ventureName}
                     </Link>
-                    {item.blockerBody && (
-                      <span className="inline-flex items-center gap-1 text-[10px] text-amber-800 dark:text-amber-300">
-                        <Link2 className="size-3" />
-                        Blocker-linked
-                      </span>
-                    )}
                   </div>
                   <p className="mt-1 font-medium">{item.title}</p>
                   {item.notes && <p className="mt-1 text-sm text-muted-foreground">{item.notes}</p>}
+                  <PlanTaskLinks
+                    className="mt-2"
+                    kpiName={item.kpiName}
+                    blockerBody={item.blockerBody}
+                  />
                 </button>
                 <div className="flex shrink-0 flex-wrap gap-1">
                   {item.status !== "doing" && item.status !== "done" && (

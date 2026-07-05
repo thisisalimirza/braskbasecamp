@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   DndContext,
   DragOverlay,
@@ -15,14 +15,13 @@ import {
 } from "@dnd-kit/core";
 import { toast } from "sonner";
 import {
-  AlertTriangle,
   Check,
   LayoutGrid,
   List,
+  Pencil,
   Plus,
   Star,
   Trash2,
-  Link2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,10 +49,24 @@ import {
   movePlanItemAction,
   resolveBlockerAction,
   setPrimaryBlockerAction,
+  updateBlockerAction,
+  updatePlanItemAction,
 } from "@/app/actions";
 import { PLAN_COLUMNS, type PlanItem, type PlanItemStatus } from "@/lib/plan-types";
 import type { VentureBlocker } from "@/lib/blocker-types";
+import type { KpiDefinition } from "@/lib/kpis";
+import { PlanTaskLinks } from "@/components/plan/PlanKpiBadge";
+import { PlanKpiSelect } from "@/components/plan/PlanKpiSelect";
+import { KpiDoneDialog } from "@/components/plan/KpiDoneDialog";
+import { PlanItemFocusDialog } from "@/components/plan/PlanItemFocusDialog";
 import { planStatusLabel } from "@/lib/next-actions";
+import {
+  countDoingItems,
+  evaluateWipLimits,
+  promoteFromBacklogRequiresIntent,
+  stepAgingLabel,
+} from "@/lib/plan-wip";
+import { useAppSettings } from "@/components/AppSettingsProvider";
 import { cn } from "@/lib/utils";
 
 const NO_BLOCKER_VALUE = "none";
@@ -67,26 +80,47 @@ type ViewMode = "board" | "list";
 export function VenturePlanPanel({
   ventureId,
   ventureSlug,
+  ventureName,
   blockers: initialBlockers,
   planItems: initialItems,
+  kpis,
+  portfolioDoingCount = 0,
 }: {
   ventureId: string;
   ventureSlug: string;
+  ventureName: string;
   blockers: VentureBlocker[];
   planItems: PlanItem[];
+  kpis: KpiDefinition[];
+  portfolioDoingCount?: number;
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const focusId = searchParams.get("focus");
+  const { hardWipLimits } = useAppSettings();
   const [view, setView] = useState<ViewMode>("board");
   const [items, setItems] = useState(initialItems);
   const [blockers, setBlockers] = useState(initialBlockers);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [editItem, setEditItem] = useState<PlanItem | null>(null);
+  const [editForm, setEditForm] = useState({
+    title: "",
+    notes: "",
+    blockerId: "",
+    kpiDefinitionId: "",
+  });
+  const [editingBlockerId, setEditingBlockerId] = useState<string | null>(null);
+  const [editingBlockerBody, setEditingBlockerBody] = useState("");
+  const [kpiDoneItem, setKpiDoneItem] = useState<PlanItem | null>(null);
+  const [focusOpen, setFocusOpen] = useState(false);
   const [newBlocker, setNewBlocker] = useState("");
   const [form, setForm] = useState({
     title: "",
     notes: "",
     status: "backlog" as PlanItemStatus,
     blockerId: "" as string,
+    kpiDefinitionId: "" as string,
   });
 
   const openBlockers = useMemo(() => blockers.filter((b) => b.status === "open"), [blockers]);
@@ -96,6 +130,14 @@ export function VenturePlanPanel({
     setItems(initialItems);
     setBlockers(initialBlockers);
   }, [initialItems, initialBlockers]);
+
+  useEffect(() => {
+    if (focusId && initialItems.some((i) => i.id === focusId)) {
+      setFocusOpen(true);
+    }
+  }, [focusId, initialItems]);
+
+  const focusItem = focusId ? items.find((i) => i.id === focusId) ?? null : null;
 
   const refresh = () => router.refresh();
 
@@ -150,12 +192,13 @@ export function VenturePlanPanel({
       notes: form.notes.trim() || null,
       status: form.status,
       blockerId: form.blockerId || null,
+      kpiDefinitionId: form.kpiDefinitionId || null,
       ventureSlug,
     });
     if (res.error) toast.error(res.error);
     else {
       toast.success("Step added");
-      setForm({ title: "", notes: "", status: "backlog", blockerId: "" });
+      setForm({ title: "", notes: "", status: "backlog", blockerId: "", kpiDefinitionId: "" });
       setAddOpen(false);
       refresh();
     }
@@ -164,6 +207,29 @@ export function VenturePlanPanel({
   const handleMove = async (itemId: string, newStatus: PlanItemStatus) => {
     const item = items.find((i) => i.id === itemId);
     if (!item || item.status === newStatus) return;
+
+    if (promoteFromBacklogRequiresIntent(item.status, newStatus)) {
+      const ok = window.confirm(
+        "Promote this idea to your committed plan? Only queue what you'll actually do this week."
+      );
+      if (!ok) return;
+    }
+
+    if (newStatus === "doing") {
+      const { allowed, message } = evaluateWipLimits({
+        hard: hardWipLimits,
+        ventureItems: items,
+        portfolioDoing: portfolioDoingCount || countDoingItems(items),
+        movingItemId: itemId,
+        currentStatus: item.status,
+        targetStatus: newStatus,
+      });
+      if (!allowed) {
+        toast.error(message ?? "WIP limit reached");
+        return;
+      }
+      if (message) toast.message("Heads up", { description: message });
+    }
 
     const targetCol = byStatus(newStatus);
     const sortOrder = targetCol.length;
@@ -177,6 +243,55 @@ export function VenturePlanPanel({
       toast.error(res.error);
       setItems(initialItems);
     } else {
+      refresh();
+    }
+  };
+
+  const handleMarkDone = (item: PlanItem) => {
+    if (item.kpiDefinitionId && item.kpiName) {
+      setKpiDoneItem(item);
+      return;
+    }
+    void handleMove(item.id, "done");
+  };
+
+  const openEdit = (item: PlanItem) => {
+    setEditItem(item);
+    setEditForm({
+      title: item.title,
+      notes: item.notes ?? "",
+      blockerId: item.blockerId ?? "",
+      kpiDefinitionId: item.kpiDefinitionId ?? "",
+    });
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editItem || !editForm.title.trim()) return;
+    const res = await updatePlanItemAction(
+      editItem.id,
+      {
+        title: editForm.title.trim(),
+        notes: editForm.notes.trim() || null,
+        blockerId: editForm.blockerId || null,
+        kpiDefinitionId: editForm.kpiDefinitionId || null,
+      },
+      ventureSlug
+    );
+    if (res.error) toast.error(res.error);
+    else {
+      toast.success("Step updated");
+      setEditItem(null);
+      refresh();
+    }
+  };
+
+  const handleSaveBlockerEdit = async (blockerId: string) => {
+    if (!editingBlockerBody.trim()) return;
+    const res = await updateBlockerAction(blockerId, editingBlockerBody.trim(), ventureSlug);
+    if (res.error) toast.error(res.error);
+    else {
+      toast.success("Blocker updated");
+      setEditingBlockerId(null);
       refresh();
     }
   };
@@ -249,8 +364,42 @@ export function VenturePlanPanel({
                     Primary
                   </span>
                 )}
-                <p className="min-w-0 flex-1 leading-relaxed">{b.body}</p>
+                <p className="min-w-0 flex-1 leading-relaxed">
+                  {editingBlockerId === b.id ? (
+                    <Input
+                      value={editingBlockerBody}
+                      onChange={(e) => setEditingBlockerBody(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && handleSaveBlockerEdit(b.id)}
+                      className="h-8"
+                    />
+                  ) : (
+                    b.body
+                  )}
+                </p>
                 <div className="flex shrink-0 gap-1">
+                  {editingBlockerId === b.id ? (
+                    <>
+                      <Button type="button" size="sm" className="h-8 text-xs" onClick={() => handleSaveBlockerEdit(b.id)}>
+                        Save
+                      </Button>
+                      <Button type="button" variant="ghost" size="sm" className="h-8 text-xs" onClick={() => setEditingBlockerId(null)}>
+                        Cancel
+                      </Button>
+                    </>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 text-xs"
+                      onClick={() => {
+                        setEditingBlockerId(b.id);
+                        setEditingBlockerBody(b.body);
+                      }}
+                    >
+                      <Pencil className="size-3" />
+                    </Button>
+                  )}
                   {!b.isPrimary && (
                     <Button
                       type="button"
@@ -327,7 +476,7 @@ export function VenturePlanPanel({
               </button>
             </div>
             <Button type="button" size="sm" className="gap-1" onClick={() => {
-              setForm({ title: "", notes: "", status: "backlog", blockerId: "" });
+              setForm({ title: "", notes: "", status: "backlog", blockerId: "", kpiDefinitionId: "" });
               setAddOpen(true);
             }}>
               <Plus className="size-4" />
@@ -336,7 +485,32 @@ export function VenturePlanPanel({
           </div>
         </div>
 
-        {view === "board" ? (
+        {countDoingItems(items) >= 2 && (
+          <p className="mt-3 rounded-lg border border-amber-200/80 bg-amber-50/80 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-200">
+            {countDoingItems(items)} steps in progress here — finish one before starting more.
+          </p>
+        )}
+
+        {items.filter((i) => i.status !== "done").length === 0 ? (
+          <div className="mt-6 rounded-xl border border-dashed border-border/80 px-4 py-8 text-center">
+            <p className="font-medium">What&apos;s the smallest thing that moves this forward?</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Name one minimum next step — not a wish list.
+            </p>
+            <Button
+              type="button"
+              size="sm"
+              className="mt-4 gap-1"
+              onClick={() => {
+                setForm({ title: "", notes: "", status: "next", blockerId: "", kpiDefinitionId: "" });
+                setAddOpen(true);
+              }}
+            >
+              <Plus className="size-4" />
+              Add minimum next step
+            </Button>
+          </div>
+        ) : view === "board" ? (
           <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
             <div className="mt-5 flex gap-3 overflow-x-auto pb-2">
               {PLAN_COLUMNS.map((col) => (
@@ -347,6 +521,8 @@ export function VenturePlanPanel({
                   blockers={openBlockers}
                   onDelete={handleDelete}
                   onMove={handleMove}
+                  onDone={handleMarkDone}
+                  onEdit={openEdit}
                 />
               ))}
             </div>
@@ -363,6 +539,8 @@ export function VenturePlanPanel({
             blockers={openBlockers}
             onMove={handleMove}
             onDelete={handleDelete}
+            onDone={handleMarkDone}
+            onEdit={openEdit}
           />
         )}
       </section>
@@ -459,6 +637,12 @@ export function VenturePlanPanel({
                 </Select>
               </div>
             )}
+            <PlanKpiSelect
+              id="plan-step-kpi"
+              kpis={kpis}
+              value={form.kpiDefinitionId}
+              onChange={(kpiDefinitionId) => setForm((f) => ({ ...f, kpiDefinitionId }))}
+            />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddOpen(false)}>
@@ -468,6 +652,102 @@ export function VenturePlanPanel({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={editItem != null} onOpenChange={(open) => !open && setEditItem(null)}>
+        <DialogContent className="sm:max-w-md">
+          {editItem && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Edit step</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label className="text-xs">Title</Label>
+                  <Input
+                    className="mt-1.5"
+                    value={editForm.title}
+                    onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Notes</Label>
+                  <Textarea
+                    className="mt-1.5"
+                    rows={2}
+                    value={editForm.notes}
+                    onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))}
+                  />
+                </div>
+                {openBlockers.length > 0 && (
+                  <div>
+                    <Label className="text-xs">Linked blocker</Label>
+                    <Select
+                      value={editForm.blockerId || NO_BLOCKER_VALUE}
+                      onValueChange={(v) =>
+                        setEditForm((f) => ({
+                          ...f,
+                          blockerId: !v || v === NO_BLOCKER_VALUE ? "" : v,
+                        }))
+                      }
+                    >
+                      <SelectTrigger className="mt-1.5 w-full">
+                        <SelectValue>{(v) => (!v || v === NO_BLOCKER_VALUE ? "None" : "Linked")}</SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={NO_BLOCKER_VALUE}>None</SelectItem>
+                        {openBlockers.map((b) => (
+                          <SelectItem key={b.id} value={b.id}>
+                            {b.body.length > 48 ? `${b.body.slice(0, 48)}…` : b.body}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                <PlanKpiSelect
+                  id="plan-edit-kpi"
+                  kpis={kpis}
+                  value={editForm.kpiDefinitionId}
+                  onChange={(kpiDefinitionId) => setEditForm((f) => ({ ...f, kpiDefinitionId }))}
+                />
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setEditItem(null)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleSaveEdit}>Save</Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <PlanItemFocusDialog
+        open={focusOpen}
+        onOpenChange={setFocusOpen}
+        item={focusItem}
+        ventureName={ventureName}
+        ventureSlug={ventureSlug}
+        blockerBody={
+          focusItem?.blockerId
+            ? openBlockers.find((b) => b.id === focusItem.blockerId)?.body ?? null
+            : null
+        }
+      />
+
+      {kpiDoneItem && kpiDoneItem.kpiDefinitionId && (
+        <KpiDoneDialog
+          open={kpiDoneItem != null}
+          onOpenChange={(open) => !open && setKpiDoneItem(null)}
+          kpiDefinitionId={kpiDoneItem.kpiDefinitionId}
+          kpiName={kpiDoneItem.kpiName ?? "KPI"}
+          kpiUnit={kpis.find((k) => k.id === kpiDoneItem.kpiDefinitionId)?.unit ?? null}
+          ventureSlug={ventureSlug}
+          itemId={kpiDoneItem.id}
+          sortOrder={kpiDoneItem.sortOrder}
+          onComplete={() => setKpiDoneItem(null)}
+        />
+      )}
     </div>
   );
 }
@@ -478,12 +758,16 @@ function PlanColumn({
   blockers,
   onDelete,
   onMove,
+  onDone,
+  onEdit,
 }: {
   column: (typeof PLAN_COLUMNS)[number];
   items: PlanItem[];
   blockers: VentureBlocker[];
   onDelete: (id: string) => void;
   onMove: (id: string, status: PlanItemStatus) => void;
+  onDone: (item: PlanItem) => void;
+  onEdit: (item: PlanItem) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
 
@@ -509,6 +793,8 @@ function PlanColumn({
             blockers={blockers}
             onDelete={onDelete}
             onMove={onMove}
+            onDone={onDone}
+            onEdit={onEdit}
           />
         ))}
       </div>
@@ -521,11 +807,15 @@ function DraggablePlanCard({
   blockers,
   onDelete,
   onMove,
+  onDone,
+  onEdit,
 }: {
   item: PlanItem;
   blockers: VentureBlocker[];
   onDelete: (id: string) => void;
   onMove: (id: string, status: PlanItemStatus) => void;
+  onDone: (item: PlanItem) => void;
+  onEdit: (item: PlanItem) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: item.id });
 
@@ -541,6 +831,8 @@ function DraggablePlanCard({
         dragHandleProps={{ ...attributes, ...listeners }}
         onDelete={onDelete}
         onMove={onMove}
+        onDone={onDone}
+        onEdit={onEdit}
       />
     </div>
   );
@@ -553,6 +845,8 @@ function PlanCard({
   dragHandleProps,
   onDelete,
   onMove,
+  onDone,
+  onEdit,
 }: {
   item: PlanItem;
   blockers: VentureBlocker[];
@@ -560,32 +854,42 @@ function PlanCard({
   dragHandleProps?: Record<string, unknown>;
   onDelete?: (id: string) => void;
   onMove?: (id: string, status: PlanItemStatus) => void;
+  onDone?: (item: PlanItem) => void;
+  onEdit?: (item: PlanItem) => void;
 }) {
   const linked = item.blockerId ? blockers.find((b) => b.id === item.blockerId) : null;
+  const aging = stepAgingLabel(item);
 
   return (
     <div
       className={cn(
         "rounded-lg border border-border/80 bg-card p-3 shadow-sm",
-        dragging && "shadow-lg ring-1 ring-primary/20",
-        dragHandleProps && "cursor-grab active:cursor-grabbing"
+        dragging && "shadow-lg ring-1 ring-primary/20"
       )}
-      {...dragHandleProps}
     >
-      <p className="text-sm font-medium leading-snug">{item.title}</p>
-      {item.notes && (
-        <p className="mt-1 text-xs leading-relaxed text-muted-foreground line-clamp-2">
-          {item.notes}
-        </p>
-      )}
-      {linked && (
-        <p className="mt-2 flex items-start gap-1 text-[11px] text-amber-800 dark:text-amber-300">
-          <Link2 className="mt-0.5 size-3 shrink-0" />
-          <span className="line-clamp-2">Unblocks: {linked.body}</span>
-        </p>
-      )}
-      {onMove && onDelete && !dragHandleProps && (
-        <div className="mt-2 flex flex-wrap gap-1">
+      <div className={cn(dragHandleProps && "cursor-grab active:cursor-grabbing")} {...dragHandleProps}>
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-sm font-medium leading-snug">{item.title}</p>
+          {aging && <span className="shrink-0 text-[10px] text-amber-800 dark:text-amber-300">{aging}</span>}
+        </div>
+        {item.notes && (
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground line-clamp-2">
+            {item.notes}
+          </p>
+        )}
+      </div>
+      <PlanTaskLinks
+        className="mt-2"
+        kpiName={item.kpiName}
+        blockerBody={linked?.body ?? null}
+      />
+      {onMove && onDelete && (
+        <div className="mt-2 flex flex-wrap gap-1" onPointerDown={(e) => e.stopPropagation()}>
+          {onEdit && (
+            <Button type="button" variant="ghost" size="sm" className="h-7 text-[11px]" onClick={() => onEdit(item)}>
+              <Pencil className="size-3" />
+            </Button>
+          )}
           {item.status !== "done" && (
             <>
               {item.status !== "doing" && (
@@ -615,7 +919,7 @@ function PlanCard({
                 variant="ghost"
                 size="sm"
                 className="h-7 text-[11px] text-emerald-700"
-                onClick={() => onMove(item.id, "done")}
+                onClick={() => onDone?.(item)}
               >
                 Done
               </Button>
@@ -642,17 +946,21 @@ function PlanListView({
   blockers,
   onMove,
   onDelete,
+  onDone,
+  onEdit,
 }: {
   items: PlanItem[];
   doneItems: PlanItem[];
   blockers: VentureBlocker[];
   onMove: (id: string, status: PlanItemStatus) => void;
   onDelete: (id: string) => void;
+  onDone: (item: PlanItem) => void;
+  onEdit: (item: PlanItem) => void;
 }) {
   if (items.length === 0 && doneItems.length === 0) {
     return (
       <p className="mt-6 text-sm text-muted-foreground">
-        No planned steps yet. Add your first idea — even a rough one keeps the plan visible.
+        What&apos;s the smallest thing that moves this forward? Add one minimum next step — not a wish list.
       </p>
     );
   }
@@ -672,14 +980,20 @@ function PlanListView({
                   {item.notes && (
                     <p className="mt-1 text-sm text-muted-foreground">{item.notes}</p>
                   )}
-                  {item.blockerId && (
-                    <p className="mt-1 flex items-center gap-1 text-xs text-amber-800 dark:text-amber-300">
-                      <AlertTriangle className="size-3" />
-                      {blockers.find((b) => b.id === item.blockerId)?.body ?? "Linked blocker"}
-                    </p>
-                  )}
+                  <PlanTaskLinks
+                    className="mt-2"
+                    kpiName={item.kpiName}
+                    blockerBody={
+                      item.blockerId
+                        ? blockers.find((b) => b.id === item.blockerId)?.body ?? null
+                        : null
+                    }
+                  />
                 </div>
                 <div className="flex shrink-0 flex-wrap gap-1">
+                  <Button type="button" variant="ghost" size="sm" className="h-8" onClick={() => onEdit(item)}>
+                    <Pencil className="size-3.5" />
+                  </Button>
                   {item.status !== "doing" && (
                     <Button
                       type="button"
@@ -697,7 +1011,7 @@ function PlanListView({
                       variant="outline"
                       size="sm"
                       className="h-8 text-xs text-emerald-700"
-                      onClick={() => onMove(item.id, "done")}
+                      onClick={() => onDone(item)}
                     >
                       Done
                     </Button>

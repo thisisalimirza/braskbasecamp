@@ -47,6 +47,26 @@ export async function listKpiDefinitions(ventureId: string): Promise<KpiDefiniti
   return res.rows.map((r) => rowToDef(r as Record<string, unknown>));
 }
 
+export async function listKpiDefinitionsForVentures(
+  ventureIds: string[]
+): Promise<Record<string, KpiDefinition[]>> {
+  const map: Record<string, KpiDefinition[]> = {};
+  for (const id of ventureIds) map[id] = [];
+  if (ventureIds.length === 0) return map;
+
+  const db = await getDb();
+  const placeholders = ventureIds.map(() => "?").join(",");
+  const res = await db.execute({
+    sql: `SELECT * FROM kpi_definitions WHERE venture_id IN (${placeholders}) ORDER BY venture_id, sort_order, name`,
+    args: ventureIds,
+  });
+  for (const row of res.rows) {
+    const def = rowToDef(row as Record<string, unknown>);
+    map[def.ventureId].push(def);
+  }
+  return map;
+}
+
 export async function createKpiDefinition(input: {
   ventureId: string;
   name: string;

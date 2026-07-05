@@ -12,6 +12,7 @@ import { formatDate } from "@/lib/format";
 import { TRAJECTORY_LABELS } from "@/lib/next-actions";
 import type { Checkin } from "@/lib/checkins";
 import type { VentureBlocker } from "@/lib/blocker-types";
+import type { KpiDefinition } from "@/lib/kpis";
 import type { PlanItem } from "@/lib/plan-types";
 import type { PnlEntry } from "@/lib/pnl";
 import type { Category } from "@/lib/categories";
@@ -33,8 +34,10 @@ type Props = {
   links: ReferenceLink[];
   blockers: VentureBlocker[];
   planItems: PlanItem[];
+  kpis: KpiDefinition[];
   planCount: number;
   openBlockerCount: number;
+  portfolioDoingCount?: number;
 };
 
 export function VentureDetailTabs({
@@ -51,8 +54,10 @@ export function VentureDetailTabs({
   links,
   blockers,
   planItems,
+  kpis,
   planCount,
   openBlockerCount,
+  portfolioDoingCount = 0,
 }: Props) {
   const router = useRouter();
   const validTabs = ["plan", "ledger", "ritual", ...(isStudio ? ["pipeline"] : []), "reference"];
@@ -93,8 +98,11 @@ export function VentureDetailTabs({
         <VenturePlanPanel
           ventureId={ventureId}
           ventureSlug={ventureSlug}
+          ventureName={ventureName}
           blockers={blockers}
           planItems={planItems}
+          kpis={kpis}
+          portfolioDoingCount={portfolioDoingCount}
         />
       </TabsContent>
 

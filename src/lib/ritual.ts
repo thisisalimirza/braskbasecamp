@@ -9,6 +9,38 @@ export { pulseBannerCopy, ritualWizardTitle, portfolioHeaderLine, remainingPulse
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const OVERDUE_MS = 14 * 24 * 60 * 60 * 1000;
 
+/** Count consecutive calendar weeks (ending this week or last) with a full portfolio pulse. */
+export async function getConsecutiveFullPulseWeeks(activeCount: number): Promise<number> {
+  if (activeCount === 0) return 0;
+  const db = await getDb();
+  const res = await db.execute(
+    `
+    SELECT checked_at, COUNT(DISTINCT venture_id) AS venture_count
+    FROM checkins
+    GROUP BY checked_at
+    HAVING venture_count >= ?
+    ORDER BY checked_at DESC
+    LIMIT 52
+  `,
+    [activeCount]
+  );
+  if (res.rows.length === 0) return 0;
+
+  const weekBuckets = new Set<number>();
+  for (const row of res.rows) {
+    const ts = Number(row.checked_at);
+    weekBuckets.add(Math.floor(ts / WEEK_MS));
+  }
+
+  const thisWeek = Math.floor(Date.now() / WEEK_MS);
+  let streak = 0;
+  for (let w = thisWeek; w >= thisWeek - 51; w--) {
+    if (weekBuckets.has(w)) streak++;
+    else if (w < thisWeek) break;
+  }
+  return streak;
+}
+
 /** Latest timestamp where every active venture was checked in together (one ritual session). */
 export async function getLastFullRitualAt(activeCount: number): Promise<number | null> {
   if (activeCount === 0) return null;
@@ -40,10 +72,12 @@ export async function getPortfolioRitualStatus(): Promise<PortfolioRitualStatus>
       activeVentureCount: 0,
       venturesMissingPulse: 0,
       venturesNeedingPulse: [],
+      consecutiveFullPulseWeeks: 0,
     };
   }
 
   const lastFullRitualAt = await getLastFullRitualAt(activeVentureCount);
+  const consecutiveFullPulseWeeks = await getConsecutiveFullPulseWeeks(activeVentureCount);
   const weekCutoff = daysAgoMs(7);
 
   const venturesNeedingPulse: VenturePulseNeed[] = [];
@@ -79,5 +113,6 @@ export async function getPortfolioRitualStatus(): Promise<PortfolioRitualStatus>
     activeVentureCount,
     venturesMissingPulse,
     venturesNeedingPulse,
+    consecutiveFullPulseWeeks,
   };
 }

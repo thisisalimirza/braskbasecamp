@@ -12,6 +12,7 @@ import {
   Pencil,
   Link2,
   ClipboardList,
+  BarChart3,
 } from "lucide-react";
 import {
   DndContext,
@@ -39,6 +40,7 @@ import { openWeeklyCheckinForVenture } from "@/components/AppShell";
 import type { VentureHealth } from "@/lib/venture-health";
 import { attentionHeadline, portfolioAttentionSnippet } from "@/lib/venture-display";
 import { MoneyTrendBadge } from "@/components/portfolio/MoneyTrendBadge";
+import { AttentionChips } from "@/components/portfolio/AttentionChips";
 import type { KpiSnapshot } from "@/lib/kpi-tracking";
 import { cn } from "@/lib/utils";
 
@@ -99,35 +101,36 @@ function TrajectoryBadge({ trajectory }: { trajectory: VentureHealth["trajectory
 }
 
 function NextAction({ action }: { action: VentureAction }) {
-  if (action.type === "none") {
-    return (
-      <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-        <span className="size-1.5 rounded-full bg-emerald-500" aria-hidden />
-        {action.label}
-      </span>
-    );
-  }
-
   const step = action.planStep;
+  const isUnset = !step;
   const pillClass = cn(
-    "inline-flex min-h-9 max-w-[200px] flex-col items-end justify-center gap-0.5 rounded-xl px-3 py-2 text-right text-xs font-medium",
+    "inline-flex min-h-9 max-w-[min(100%,280px)] flex-col items-end justify-center gap-0.5 rounded-xl px-3 py-2 text-right text-xs font-medium sm:max-w-[240px]",
     "transition-all duration-150 active:scale-[0.98]",
-    "border border-primary/20 bg-primary/[0.06] text-primary hover:border-primary/35 hover:bg-primary/10",
-    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+    isUnset
+      ? "border border-dashed border-muted-foreground/35 bg-muted/20 text-muted-foreground hover:border-primary/30 hover:text-primary"
+      : "border border-primary/20 bg-primary/[0.06] text-primary hover:border-primary/35 hover:bg-primary/10"
   );
 
   return (
     <Link href={`/ventures/${action.ventureSlug}?tab=plan`} className={pillClass} title={action.hint}>
       <span className="inline-flex items-center gap-1.5 leading-snug">
+        {step?.linkedToKpi && step.kpiName && (
+          <BarChart3 className="size-3 shrink-0 opacity-70" aria-hidden />
+        )}
         {step?.linkedToBlocker && <Link2 className="size-3 shrink-0 opacity-70" aria-hidden />}
         <span className="line-clamp-2">{action.label}</span>
         <ArrowRight className="size-3.5 shrink-0 opacity-50" />
       </span>
-      {step && (
+      {(step || isUnset) && (
         <span className="text-[10px] font-normal text-muted-foreground">
-          {step.otherBlockerLinkedCount > 0
-            ? `+${step.otherBlockerLinkedCount} more linked to blockers`
-            : planStatusLabel(step.status)}
+          {isUnset
+            ? action.hint
+            : step!.otherBlockerLinkedCount > 0
+              ? `+${step!.otherBlockerLinkedCount} more linked to blockers`
+              : step!.linkedToKpi && step!.kpiName
+                ? `Moves ${step!.kpiName}`
+                : planStatusLabel(step!.status)}
         </span>
       )}
     </Link>
@@ -204,6 +207,7 @@ function VentureRow({
             <p className="mt-0.5 text-[10px] leading-none text-muted-foreground/65">
               {formatPulseRecency(row.lastCheckinAt)}
             </p>
+            <AttentionChips row={row} className="mt-1.5" max={2} />
             {blockerText && (
               <p
                 className="mt-1.5 line-clamp-2 text-xs leading-snug text-red-700 dark:text-red-400"

@@ -35,7 +35,14 @@ export type VentureHealth = {
   primaryAction: string;
   primaryBlocker: { id: string; body: string } | null;
   openBlockerCount: number;
-  focusPlanItem: { id: string; title: string; status: PlanItemStatus } | null;
+  focusPlanItem: {
+    id: string;
+    title: string;
+    status: PlanItemStatus;
+    kpiName: string | null;
+    createdAt: number;
+    statusChangedAt: number;
+  } | null;
   nextPlanStep: VenturePlanStep | null;
 };
 
@@ -99,7 +106,14 @@ export async function getVentureHealthSummaries(): Promise<VentureHealth[]> {
       primaryBlocker: primary ? { id: primary.id, body: primary.body } : null,
       openBlockerCount: blockerCounts.get(venture.id) ?? 0,
       focusPlanItem: focus
-        ? { id: focus.id, title: focus.title, status: focus.status }
+        ? {
+            id: focus.id,
+            title: focus.title,
+            status: focus.status,
+            kpiName: focus.kpiName,
+            createdAt: focus.createdAt,
+            statusChangedAt: focus.statusChangedAt,
+          }
         : null,
       nextPlanStep,
     };
@@ -110,5 +124,12 @@ export async function getVentureHealthSummaries(): Promise<VentureHealth[]> {
     });
   }
 
-  return summaries;
+  const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+  const fresh = summaries.filter(
+    (s) => s.lastCheckinAt != null && Date.now() - s.lastCheckinAt <= thirtyDaysMs
+  );
+  const stale = summaries.filter(
+    (s) => s.lastCheckinAt == null || Date.now() - s.lastCheckinAt > thirtyDaysMs
+  );
+  return [...fresh, ...stale];
 }

@@ -16,7 +16,7 @@ import { listFacts, listLinks } from "@/lib/reference";
 import { listClients } from "@/lib/clients";
 import { listCategories } from "@/lib/categories";
 import { listBlockers, getPrimaryBlocker } from "@/lib/blockers";
-import { listPlanItems, getFocusPlanItem } from "@/lib/plan";
+import { listPlanItems, getFocusPlanItem, countPortfolioDoingItems } from "@/lib/plan";
 import { STUDIO_SLUG } from "@/lib/venture-config";
 import { cn } from "@/lib/utils";
 
@@ -47,6 +47,7 @@ export default async function VenturePage({
     planItems,
     primaryBlocker,
     focusPlan,
+    portfolioDoingCount,
   ] = await Promise.all([
     ventureMonthBreakdown(venture.id),
     monthlyTrend(venture.id, 6),
@@ -62,6 +63,7 @@ export default async function VenturePage({
     listPlanItems(venture.id),
     getPrimaryBlocker(venture.id),
     getFocusPlanItem(venture.id),
+    countPortfolioDoingItems(),
   ]);
 
   const isStudio = slug === STUDIO_SLUG;
@@ -115,7 +117,14 @@ export default async function VenturePage({
           primaryBlocker={primaryBlocker ? { id: primaryBlocker.id, body: primaryBlocker.body } : null}
           openBlockerCount={openBlockerCount}
           focusPlanItem={
-            focusPlan ? { id: focusPlan.id, title: focusPlan.title, status: focusPlan.status } : null
+            focusPlan
+              ? {
+                  id: focusPlan.id,
+                  title: focusPlan.title,
+                  status: focusPlan.status,
+                  kpiName: focusPlan.kpiName,
+                }
+              : null
           }
         />
       </div>
@@ -134,8 +143,10 @@ export default async function VenturePage({
         links={links}
         blockers={blockers}
         planItems={planItems}
+        kpis={kpis}
         planCount={activePlanCount}
         openBlockerCount={openBlockerCount}
+        portfolioDoingCount={portfolioDoingCount}
       />
     </div>
   );

@@ -6,6 +6,13 @@ import { getKpisWithLatest } from "@/lib/kpis";
 import { lastPnlEntryDate } from "@/lib/pnl";
 import { ventureTracksMoney, buildKpiStatuses } from "@/lib/kpi-tracking";
 import { getPortfolioRitualStatus } from "@/lib/ritual";
+import { getAppSettings } from "@/lib/settings";
+import {
+  getFocusPlanItem,
+  listRecentlyDonePlanItems,
+  countPortfolioDoingItems,
+} from "@/lib/plan";
+import { daysAgoMs } from "@/lib/format";
 import type { VentureCheckinDraft } from "@/components/wizards/weekly-checkin-types";
 
 export async function getAppShellData() {
@@ -22,12 +29,19 @@ export async function getAppShellData() {
   const jar = await cookies();
   const lastVentureId = jar.get("last_venture_id")?.value;
 
+  const [recentlyDone, portfolioDoingCount, appSettings] = await Promise.all([
+    listRecentlyDonePlanItems(daysAgoMs(7)),
+    countPortfolioDoingItems(),
+    getAppSettings(),
+  ]);
+
   const checkinDrafts: VentureCheckinDraft[] = [];
 
   for (const v of activeVentures) {
-    const [kpis, lastPnl] = await Promise.all([
+    const [kpis, lastPnl, focus] = await Promise.all([
       getKpisWithLatest(v.id),
       lastPnlEntryDate(v.id),
+      getFocusPlanItem(v.id),
     ]);
     const kpiValues: Record<string, string> = {};
     for (const k of kpis) {
@@ -53,6 +67,10 @@ export async function getAppShellData() {
       stalePnl,
       daysSincePnl: days,
       staleKpiNames,
+      existingFocusTitle: focus?.title ?? null,
+      nextStepTitle: "",
+      nextStepKpiDefinitionId: "",
+      updateBlocker: false,
     });
   }
 
@@ -64,5 +82,8 @@ export async function getAppShellData() {
     lastVentureId,
     checkinDrafts,
     ritual,
+    recentlyDone,
+    portfolioDoingCount,
+    appSettings,
   };
 }
