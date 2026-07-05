@@ -2,6 +2,7 @@ import { listActiveVentures } from "./ventures";
 import { getLatestCheckin, lastCheckinDate } from "./checkins";
 import { lastPnlEntryDate, ventureNetThisMonth, ventureNetLastMonth } from "./pnl";
 import { daysAgoMs } from "./format";
+import { friendlyActionHint } from "./next-actions";
 
 export type AttentionReason =
   | "trajectory_down"
@@ -18,10 +19,10 @@ export type AttentionItem = {
 };
 
 const REASON_LABELS: Record<AttentionReason, string> = {
-  trajectory_down: "Latest check-in trajectory is down",
-  stale_checkin: "No check-in in over 14 days",
-  stale_pnl: "No money entry in over 14 days",
-  new_negative_month: "Net negative this month (was positive last month)",
+  trajectory_down: friendlyActionHint("trajectory_down"),
+  stale_checkin: friendlyActionHint("stale_checkin"),
+  stale_pnl: friendlyActionHint("stale_pnl"),
+  new_negative_month: friendlyActionHint("new_negative_month"),
 };
 
 export async function getAttentionItems(): Promise<AttentionItem[]> {

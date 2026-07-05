@@ -6,11 +6,12 @@ import { ReferencePanel } from "@/components/portfolio/ReferencePanel";
 import { PortfolioActions } from "@/components/portfolio/PortfolioActions";
 import { companyNetThisMonth, monthlyTrend, ownerEquityCents } from "@/lib/pnl";
 import { getVentureHealthSummaries } from "@/lib/venture-health";
+import { getPortfolioRitualStatus, portfolioHeaderLine } from "@/lib/ritual";
 import { listGlobalFacts, listLinks } from "@/lib/reference";
 import { formatCents } from "@/lib/format";
 
 export default async function PortfolioPage() {
-  const [netThisMonth, trend, summaries, ownerEquity, globalFacts, globalLinks] =
+  const [netThisMonth, trend, summaries, ownerEquity, globalFacts, globalLinks, ritual] =
     await Promise.all([
       companyNetThisMonth(),
       monthlyTrend(null, 6),
@@ -18,6 +19,7 @@ export default async function PortfolioPage() {
       ownerEquityCents(),
       listGlobalFacts(),
       listLinks("global"),
+      getPortfolioRitualStatus(),
     ]);
 
   const trendValues = trend.map((t) => t.netCents);
@@ -30,12 +32,8 @@ export default async function PortfolioPage() {
       <PageHeader
         eyebrow="Brask Group"
         title="Base Camp"
-        description={
-          attentionCount > 0
-            ? `${attentionCount} venture${attentionCount === 1 ? "" : "s"} need your attention this week.`
-            : "All ventures checked in recently. Company pulse looks steady."
-        }
-        actions={<PortfolioActions />}
+        description={portfolioHeaderLine(ritual, attentionCount)}
+        actions={<PortfolioActions ritual={ritual} />}
       />
 
       <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
@@ -47,7 +45,7 @@ export default async function PortfolioPage() {
         />
         <div className="flex flex-col gap-4">
           {topBlocker ? (
-            <SectionCard title="Active blocker" description="From latest check-in">
+            <SectionCard title="What's stuck" description="From the latest pulse">
               <Link href={`/ventures/${topBlocker.venture.slug}`} className="group block">
                 <p className="font-heading text-lg font-semibold group-hover:text-primary">
                   {topBlocker.venture.name}
@@ -55,7 +53,7 @@ export default async function PortfolioPage() {
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
                   {topBlocker.lastCheckinNote}
                 </p>
-                <p className="mt-3 text-xs font-medium text-primary">View venture →</p>
+                <p className="mt-3 text-xs font-medium text-primary">See what&apos;s blocking it →</p>
               </Link>
             </SectionCard>
           ) : (
@@ -67,8 +65,8 @@ export default async function PortfolioPage() {
       </div>
 
       <SectionCard
-        title="Venture pulse"
-        description="Money, trajectory, and freshness — sorted by what needs you first"
+        title="How ventures are doing"
+        description="Your priority order — drag rows to reorder. Pulse wizard follows this same order."
       >
         <VentureHealthTable summaries={summaries} />
       </SectionCard>

@@ -20,6 +20,7 @@ import type { Venture } from "@/lib/ventures";
 import type { Category } from "@/lib/categories";
 import type { Client } from "@/lib/clients";
 import { ArrowDownCircle, ArrowUpCircle, User } from "lucide-react";
+import { WizardChoice, WizardChoiceGrid } from "./WizardChoice";
 import { cn } from "@/lib/utils";
 
 type EntryKind = "revenue" | "cost" | "owner";
@@ -129,72 +130,77 @@ function RecordMoneyInner({
     <>
       <WizardStep step={0}>
         <p className="text-sm text-muted-foreground">Money in or money out?</p>
-        <div className="grid gap-3">
-          <button
-            type="button"
+        <WizardChoiceGrid className="mt-3">
+          <WizardChoice
             onClick={() => {
               setState((s) => ({ ...s, kind: "revenue" }));
               next();
             }}
-            className="flex items-center gap-3 rounded-xl border-2 border-emerald-200 bg-emerald-50 p-4 text-left dark:border-emerald-900 dark:bg-emerald-950/30"
           >
-            <ArrowUpCircle className="size-8 text-emerald-600" />
-            <div>
-              <p className="font-semibold">Revenue</p>
-              <p className="text-xs text-muted-foreground">Money coming in</p>
+            <div className="flex items-center gap-3">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400">
+                <ArrowUpCircle className="size-5" />
+              </span>
+              <div>
+                <p className="font-semibold">Revenue</p>
+                <p className="text-xs text-muted-foreground">Money coming in</p>
+              </div>
             </div>
-          </button>
-          <button
-            type="button"
+          </WizardChoice>
+          <WizardChoice
             onClick={() => {
               setState((s) => ({ ...s, kind: "cost" }));
               next();
             }}
-            className="flex items-center gap-3 rounded-xl border-2 border-zinc-200 bg-zinc-50 p-4 text-left dark:border-zinc-700 dark:bg-zinc-900/50"
           >
-            <ArrowDownCircle className="size-8 text-zinc-600" />
-            <div>
-              <p className="font-semibold">Cost</p>
-              <p className="text-xs text-muted-foreground">Money going out</p>
+            <div className="flex items-center gap-3">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-stone-100 text-stone-600 dark:bg-stone-800 dark:text-stone-300">
+                <ArrowDownCircle className="size-5" />
+              </span>
+              <div>
+                <p className="font-semibold">Spending</p>
+                <p className="text-xs text-muted-foreground">Money going out</p>
+              </div>
             </div>
-          </button>
-          <button
-            type="button"
+          </WizardChoice>
+          <WizardChoice
+            size="compact"
             onClick={() => {
               setState((s) => ({ ...s, kind: "owner", ventureId: null }));
               next();
             }}
-            className="flex items-center gap-2 rounded-lg border border-dashed p-3 text-sm text-muted-foreground"
           >
-            <User className="size-4" />
-            Owner contribution / draw
-          </button>
-        </div>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <User className="size-4" />
+              Owner contribution or draw
+            </div>
+          </WizardChoice>
+        </WizardChoiceGrid>
       </WizardStep>
 
       <WizardStep step={1}>
         <p className="text-sm text-muted-foreground">Which venture?</p>
-        <div className="grid gap-2">
+        <WizardChoiceGrid className="mt-3">
           {state.kind !== "owner" && (
-            <button
-              type="button"
+            <WizardChoice
+              selected={state.ventureId === null}
               onClick={() => setState((s) => ({ ...s, ventureId: null }))}
-              className={cn("rounded-lg border p-3 text-left text-sm", state.ventureId === null && "border-primary bg-primary/5")}
+              size="compact"
             >
-              Company-wide overhead
-            </button>
+              <span className="text-sm font-medium">Company-wide overhead</span>
+            </WizardChoice>
           )}
           {activeVentures.map((v) => (
-            <button
+            <WizardChoice
               key={v.id}
-              type="button"
+              selected={state.ventureId === v.id}
               onClick={() => setState((s) => ({ ...s, ventureId: v.id }))}
-              className={cn("rounded-lg border p-3 text-left text-sm", state.ventureId === v.id && "border-primary bg-primary/5")}
+              size="compact"
             >
-              {v.name}
-            </button>
+              <span className="text-sm font-medium">{v.name}</span>
+            </WizardChoice>
           ))}
-        </div>
+        </WizardChoiceGrid>
         <Button className="mt-4 w-full" onClick={next}>
           Continue
         </Button>

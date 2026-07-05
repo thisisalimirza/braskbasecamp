@@ -1,15 +1,25 @@
-import { TrendingDown, TrendingUp, Minus, AlertCircle, ClipboardCheck } from "lucide-react";
+"use client";
+
+import { AlertCircle, ClipboardList, TrendingDown, TrendingUp, Minus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { VentureDashboardCard } from "@/components/ventures/VentureDashboardCard";
 import { formatDate, daysAgoMs } from "@/lib/format";
+import { TRAJECTORY_LABELS } from "@/lib/next-actions";
+import { openWeeklyCheckin, openRecordMoneyPrefilled } from "@/components/AppShell";
 import type { Checkin } from "@/lib/checkins";
 import { cn } from "@/lib/utils";
 
 export function VentureStatusPanel({
   latestCheckin,
+  ventureId,
 }: {
   latestCheckin: Checkin | null;
+  ventureId: string;
 }) {
   const cutoff = daysAgoMs(14);
+  const weekCutoff = daysAgoMs(7);
   const stale = !latestCheckin || latestCheckin.checkedAt < cutoff;
+  const needsPulse = !latestCheckin || latestCheckin.checkedAt < weekCutoff;
   const daysSince = latestCheckin
     ? Math.floor((Date.now() - latestCheckin.checkedAt) / (24 * 60 * 60 * 1000))
     : null;
@@ -18,20 +28,23 @@ export function VentureStatusPanel({
   const note = latestCheckin?.note?.trim() || null;
 
   return (
-    <div className="flex h-full flex-col rounded-2xl border border-border/80 bg-card p-5 shadow-sm">
-      <p className="font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-        Status & blockers
-      </p>
-
-      <div className="mt-4 flex items-center gap-3">
+    <VentureDashboardCard
+      label="How it's going"
+      footer={
+        <p className="text-xs text-muted-foreground">
+          Full history in the <strong>Past pulses</strong> tab below.
+        </p>
+      }
+    >
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <TrajectoryBadge trajectory={trajectory} />
         {latestCheckin ? (
           <span className="text-sm text-muted-foreground">
-            Check-in {formatDate(latestCheckin.checkedAt)}
+            Last pulse {formatDate(latestCheckin.checkedAt)}
             {daysSince != null && daysSince > 0 && ` · ${daysSince}d ago`}
           </span>
         ) : (
-          <span className="text-sm text-muted-foreground">No check-ins yet</span>
+          <span className="text-sm text-muted-foreground">No pulse yet</span>
         )}
       </div>
 
@@ -45,15 +58,15 @@ export function VentureStatusPanel({
           )}
         >
           <p className="font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-            {trajectory === "down" ? "Blocker" : "Latest note"}
+            {trajectory === "down" ? "What's stuck" : "Latest note"}
           </p>
           <p className="mt-1.5">{note}</p>
         </div>
       ) : (
         <p className="mt-4 text-sm text-muted-foreground">
           {trajectory === "down"
-            ? "Trajectory is down but no note was captured — add one in your next check-in."
-            : "No notes from the last check-in."}
+            ? "Marked as struggling — add a note next time so you remember what's in the way."
+            : "No notes from the last pulse."}
         </p>
       )}
 
@@ -62,17 +75,31 @@ export function VentureStatusPanel({
           <AlertCircle className="mt-0.5 size-4 shrink-0" />
           <span>
             {latestCheckin
-              ? `Check-in is ${daysSince} days old — run a weekly check-in to stay current.`
-              : "Run a weekly check-in from the portfolio home to set trajectory and note blockers."}
+              ? `It's been ${daysSince} days — a quick pulse keeps this venture current.`
+              : "Run a pulse from the portfolio home to capture how this venture is doing."}
           </span>
         </div>
       )}
 
-      <p className="mt-auto pt-4 text-xs text-muted-foreground">
-        <ClipboardCheck className="mr-1 inline size-3.5" />
-        Full history in the Check-ins tab below.
-      </p>
-    </div>
+      <div className="mt-auto flex flex-wrap gap-2 pt-4">
+        {needsPulse && (
+          <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={() => openWeeklyCheckin()}>
+            <ClipboardList className="size-3.5" />
+            Run a pulse
+          </Button>
+        )}
+        {trajectory === "down" && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => openRecordMoneyPrefilled({ ventureId, kind: "cost" })}
+          >
+            Log spending
+          </Button>
+        )}
+      </div>
+    </VentureDashboardCard>
   );
 }
 
@@ -82,9 +109,9 @@ function TrajectoryBadge({ trajectory }: { trajectory: Checkin["trajectory"] | n
   }
 
   const config = {
-    up: { icon: TrendingUp, label: "Up", className: "status-up" },
-    flat: { icon: Minus, label: "Flat", className: "status-flat" },
-    down: { icon: TrendingDown, label: "Down", className: "status-down" },
+    up: { icon: TrendingUp, label: TRAJECTORY_LABELS.up, className: "status-up" },
+    flat: { icon: Minus, label: TRAJECTORY_LABELS.flat, className: "status-flat" },
+    down: { icon: TrendingDown, label: TRAJECTORY_LABELS.down, className: "status-down" },
   }[trajectory];
 
   const Icon = config.icon;
@@ -92,7 +119,7 @@ function TrajectoryBadge({ trajectory }: { trajectory: Checkin["trajectory"] | n
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium capitalize",
+        "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium",
         config.className
       )}
     >

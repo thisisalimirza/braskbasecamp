@@ -58,8 +58,8 @@ export function WizardShell({
   return (
     <WizardContext.Provider value={value}>
       <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
-        <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={close} />
-        <div className="relative z-10 flex max-h-[92vh] w-full max-w-lg flex-col rounded-t-2xl border bg-background shadow-xl sm:max-h-[85vh] sm:rounded-2xl">
+        <div className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity" onClick={close} />
+        <div className="relative z-10 flex max-h-[92vh] w-full max-w-lg flex-col rounded-t-2xl border bg-background shadow-xl animate-in fade-in slide-in-from-bottom-4 duration-200 sm:max-h-[85vh] sm:rounded-2xl sm:slide-in-from-bottom-0">
           <div className="flex items-center gap-2 border-b px-4 py-3">
             {step > 0 && (
               <Button type="button" variant="ghost" size="icon-sm" onClick={value.back}>

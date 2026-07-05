@@ -103,17 +103,17 @@ export function LedgerEmptyState({
   ventureName: string;
 }) {
   return (
-    <div className="flex flex-col items-center py-10 text-center">
-      <span className="flex size-12 items-center justify-center rounded-full bg-muted">
+    <div className="flex flex-col items-center rounded-xl border border-dashed border-border/80 bg-muted/20 px-6 py-12 text-center">
+      <span className="flex size-12 items-center justify-center rounded-full bg-muted transition-colors">
         <Plus className="size-5 text-muted-foreground" />
       </span>
       <p className="mt-4 font-medium">No money logged yet</p>
       <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-        Record revenue when {ventureName} earns — subscriptions, client payments, product sales, etc.
+        Log revenue when {ventureName} earns — subscriptions, sales, client payments, and more.
       </p>
-      <div className="mt-5 flex flex-wrap justify-center gap-2">
-        <RecordMoneyButton ventureId={ventureId} kind="revenue" label="Record revenue" />
-        <RecordMoneyButton ventureId={ventureId} kind="cost" label="Record cost" variant="outline" />
+      <div className="mt-6 flex flex-wrap justify-center gap-2">
+        <RecordMoneyButton ventureId={ventureId} kind="revenue" label="Log revenue" />
+        <RecordMoneyButton ventureId={ventureId} kind="cost" label="Log spending" variant="outline" />
       </div>
     </div>
   );

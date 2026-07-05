@@ -31,7 +31,7 @@ import { formatCents, formatDate, msToDateInput, categoryLabel } from "@/lib/for
 import type { PnlEntry } from "@/lib/pnl";
 import type { Category } from "@/lib/categories";
 import { cn } from "@/lib/utils";
-import { LedgerEmptyState, VentureMoneyActions } from "@/components/ventures/RecordMoneyButton";
+import { LedgerEmptyState } from "@/components/ventures/RecordMoneyButton";
 
 export function PnlEntriesTable({
   entries,
@@ -51,9 +51,6 @@ export function PnlEntriesTable({
 
   return (
     <>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <VentureMoneyActions ventureId={ventureId} ventureName={ventureName} compact />
-      </div>
       {entries.length === 0 ? (
         <LedgerEmptyState ventureId={ventureId} ventureName={ventureName} />
       ) : (
@@ -70,7 +67,7 @@ export function PnlEntriesTable({
         </TableHeader>
         <TableBody>
           {entries.map((e) => (
-            <TableRow key={e.id}>
+            <TableRow key={e.id} className="transition-colors hover:bg-muted/40">
               <TableCell className="text-muted-foreground">{formatDate(e.occurredOn)}</TableCell>
               <TableCell>
                 <span

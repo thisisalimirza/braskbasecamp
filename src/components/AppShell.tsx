@@ -12,6 +12,8 @@ import { logout } from "@/app/actions";
 import type { Venture } from "@/lib/ventures";
 import type { Category } from "@/lib/categories";
 import type { Client } from "@/lib/clients";
+import type { PortfolioRitualStatus } from "@/lib/ritual-copy";
+import { ritualWizardTitle } from "@/lib/ritual-copy";
 import { cn } from "@/lib/utils";
 
 type RecordPrefill = { ventureId?: string; clientId?: string; kind?: "revenue" | "cost" | "owner" };
@@ -29,6 +31,7 @@ export function AppShell({
   clients,
   lastVentureId,
   checkinDrafts,
+  ritual,
 }: {
   children: React.ReactNode;
   ventures: Venture[];
@@ -37,6 +40,7 @@ export function AppShell({
   clients: Client[];
   lastVentureId?: string;
   checkinDrafts: VentureCheckinDraft[];
+  ritual: PortfolioRitualStatus;
 }) {
   const pathname = usePathname();
   const [recordOpen, setRecordOpen] = useState(false);
@@ -102,7 +106,7 @@ export function AppShell({
         <Button
           type="button"
           size="lg"
-          className="pointer-events-auto h-12 gap-2 rounded-full px-6 shadow-lg"
+          className="pointer-events-auto h-12 gap-2 rounded-full px-6 shadow-lg transition-shadow hover:shadow-xl"
           onClick={() => openRecordMoney()}
         >
           <Plus className="size-5" />
@@ -121,7 +125,12 @@ export function AppShell({
         prefill={recordPrefill}
       />
 
-      <WeeklyCheckinWizard open={checkinOpen} onOpenChange={setCheckinOpen} initial={checkinDrafts} />
+      <WeeklyCheckinWizard
+        open={checkinOpen}
+        onOpenChange={setCheckinOpen}
+        initial={checkinDrafts}
+        title={ritualWizardTitle(ritual.status)}
+      />
     </div>
   );
 }

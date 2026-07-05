@@ -4,6 +4,7 @@ import { lastPnlEntryDate, ventureNetThisMonth } from "./pnl";
 import { daysAgoMs } from "./format";
 import type { Trajectory } from "./checkins";
 import type { AttentionReason } from "./attention";
+import { primaryActionForVenture } from "./next-actions";
 
 export type VentureHealth = {
   venture: Venture;
@@ -14,13 +15,6 @@ export type VentureHealth = {
   lastPnlAt: number | null;
   reasons: AttentionReason[];
   primaryAction: string;
-};
-
-const ACTION_HINTS: Record<AttentionReason, string> = {
-  trajectory_down: "Review blocker in check-in",
-  stale_checkin: "Run weekly check-in",
-  stale_pnl: "Record money or verify Stripe",
-  new_negative_month: "Review costs this month",
 };
 
 function collectReasons(
@@ -60,20 +54,34 @@ export async function getVentureHealthSummaries(): Promise<VentureHealth[]> {
       netLastMonth
     );
 
-    summaries.push({
-      venture,
-      netCents,
-      trajectory: latestCheckin?.trajectory ?? null,
-      lastCheckinAt: latestCheckin?.checkedAt ?? null,
-      lastCheckinNote: latestCheckin?.note ?? null,
-      lastPnlAt,
-      reasons,
-      primaryAction: reasons.length > 0 ? ACTION_HINTS[reasons[0]] : "On track",
-    });
+    if (reasons.length > 0) {
+      const row = {
+        venture,
+        netCents,
+        trajectory: latestCheckin?.trajectory ?? null,
+        lastCheckinAt: latestCheckin?.checkedAt ?? null,
+        lastCheckinNote: latestCheckin?.note ?? null,
+        lastPnlAt,
+        reasons,
+        primaryAction: "",
+      };
+      summaries.push({
+        ...row,
+        primaryAction: primaryActionForVenture(row).label,
+      });
+    } else {
+      summaries.push({
+        venture,
+        netCents,
+        trajectory: latestCheckin?.trajectory ?? null,
+        lastCheckinAt: latestCheckin?.checkedAt ?? null,
+        lastCheckinNote: latestCheckin?.note ?? null,
+        lastPnlAt,
+        reasons,
+        primaryAction: "Looks good",
+      });
+    }
   }
 
-  return summaries.sort((a, b) => {
-    if (a.reasons.length !== b.reasons.length) return b.reasons.length - a.reasons.length;
-    return a.netCents - b.netCents;
-  });
+  return summaries;
 }

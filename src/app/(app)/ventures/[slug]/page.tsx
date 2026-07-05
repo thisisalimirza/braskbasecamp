@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { PageHeader } from "@/components/ui/page-header";
+import { PageHeader, SectionCard } from "@/components/ui/page-header";
 import { ReferencePanel } from "@/components/portfolio/ReferencePanel";
 import { PnlEntriesTable } from "@/components/ventures/PnlEntriesTable";
 import { VentureMoneySnapshot } from "@/components/ventures/VentureMoneySnapshot";
 import { KpiGlance } from "@/components/ventures/KpiGlance";
 import { VentureStatusPanel } from "@/components/ventures/VentureStatusPanel";
 import { VentureEditDialog } from "@/components/ventures/VentureEditDialog";
-import { VentureMoneyActions } from "@/components/ventures/RecordMoneyButton";
+import { VenturePageActions } from "@/components/ventures/VenturePageActions";
 import { PipelineBoard } from "@/components/studio/PipelineBoard";
 import { ClientList } from "@/components/studio/ClientList";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +21,7 @@ import { listClients } from "@/lib/clients";
 import { listCategories } from "@/lib/categories";
 import { STUDIO_SLUG } from "@/lib/venture-config";
 import { formatDate } from "@/lib/format";
+import { TRAJECTORY_LABELS } from "@/lib/next-actions";
 import { cn } from "@/lib/utils";
 
 export default async function VenturePage({
@@ -62,7 +63,7 @@ export default async function VenturePage({
         description={venture.oneLiner ?? undefined}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <VentureMoneyActions ventureId={venture.id} ventureName={venture.name} compact />
+            <VenturePageActions ventureId={venture.id} />
             <Badge
               variant="outline"
               className={cn(
@@ -79,7 +80,7 @@ export default async function VenturePage({
       />
 
       {/* First fold: the three things that matter */}
-      <div className="grid gap-4 lg:grid-cols-3 lg:items-stretch">
+      <div className="grid gap-4 lg:grid-cols-3">
         <VentureMoneySnapshot
           revenueCents={breakdown.revenueCents}
           costCents={breakdown.costCents}
@@ -88,17 +89,17 @@ export default async function VenturePage({
           trendLabels={trendLabels}
         />
         <KpiGlance kpis={kpis} ventureId={venture.id} ventureSlug={slug} />
-        <VentureStatusPanel latestCheckin={latestCheckin} />
+        <VentureStatusPanel latestCheckin={latestCheckin} ventureId={venture.id} />
       </div>
 
       {/* Secondary detail — tabs, not competing with the dashboard */}
       <Tabs defaultValue="ledger" className="space-y-4">
         <TabsList className="h-auto w-full justify-start gap-1 rounded-xl bg-muted/50 p-1">
           <TabsTrigger value="ledger" className="rounded-lg px-4 py-2">
-            Money ledger
+            Money history
           </TabsTrigger>
           <TabsTrigger value="ritual" className="rounded-lg px-4 py-2">
-            Check-in history
+            Past pulses
           </TabsTrigger>
           {isStudio && (
             <TabsTrigger value="pipeline" className="rounded-lg px-4 py-2">
@@ -111,24 +112,29 @@ export default async function VenturePage({
         </TabsList>
 
         <TabsContent value="ledger">
-          <PnlEntriesTable
-            entries={entries}
-            ventureSlug={slug}
-            ventureId={venture.id}
-            ventureName={venture.name}
-            categories={allCategories}
-          />
+          <SectionCard
+            title="Money history"
+            description="Everything you've logged for this venture"
+          >
+            <PnlEntriesTable
+              entries={entries}
+              ventureSlug={slug}
+              ventureId={venture.id}
+              ventureName={venture.name}
+              categories={allCategories}
+            />
+          </SectionCard>
         </TabsContent>
 
         <TabsContent value="ritual">
           <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-sm">
-            <h2 className="font-heading text-base font-semibold">Check-in history</h2>
+            <h2 className="font-heading text-base font-semibold">Past pulses</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Trajectory and notes from each weekly ritual.
+              How this venture has been doing over time.
             </p>
             {checkins.length === 0 ? (
               <p className="mt-6 text-sm text-muted-foreground">
-                No check-ins yet. Use <strong>Weekly check-in</strong> on the portfolio home.
+                Nothing here yet. Use <strong>Update pulse</strong> on the portfolio home when you&apos;re ready.
               </p>
             ) : (
               <ul className="mt-6 space-y-3">
@@ -137,13 +143,13 @@ export default async function VenturePage({
                     <div className="flex flex-wrap items-center gap-3">
                       <span
                         className={cn(
-                          "rounded-full px-2.5 py-0.5 text-xs font-medium capitalize",
+                          "rounded-full px-2.5 py-0.5 text-xs font-medium",
                           c.trajectory === "up" && "status-up",
                           c.trajectory === "flat" && "status-flat",
                           c.trajectory === "down" && "status-down"
                         )}
                       >
-                        {c.trajectory}
+                        {TRAJECTORY_LABELS[c.trajectory]}
                       </span>
                       <span className="text-sm text-muted-foreground">{formatDate(c.checkedAt)}</span>
                     </div>

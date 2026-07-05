@@ -49,9 +49,19 @@ export const VENTURE_CATEGORY_HINTS: Record<string, string[]> = {
   ],
 };
 
+const DEFAULT_APP_CATEGORY_HINTS = [
+  "subscription_revenue",
+  "product_sale",
+  "hosting",
+  "software",
+  "marketing",
+  "other_revenue",
+  "other_cost",
+];
+
 export const STUDIO_SLUG = "brask-studio";
 
 export function getCategoryHints(slug: string | null | undefined): string[] | null {
   if (!slug) return null;
-  return VENTURE_CATEGORY_HINTS[slug] ?? null;
+  return VENTURE_CATEGORY_HINTS[slug] ?? DEFAULT_APP_CATEGORY_HINTS;
 }

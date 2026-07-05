@@ -112,6 +112,14 @@ export async function updateVentureAction(
   });
 }
 
+export async function reorderVenturesPriorityAction(orderedIds: string[]): Promise<FormState> {
+  return run(async () => {
+    if (orderedIds.length === 0) return;
+    await ventures.reorderVentures(orderedIds);
+    revalidatePortfolio();
+  });
+}
+
 // --- P&L ---
 
 export async function recordPnlEntryAction(input: {

@@ -51,7 +51,7 @@ export function KpiManage({
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="flex w-full items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
+        className="flex w-full items-center gap-1 rounded-lg px-1 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground"
       >
         <ChevronDown className={cn("size-3.5 transition-transform", open && "rotate-180")} />
         {open ? "Hide" : "Update or add metrics"}
