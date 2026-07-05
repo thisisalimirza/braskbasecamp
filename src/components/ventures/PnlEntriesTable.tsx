@@ -6,6 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -22,15 +29,20 @@ import {
 import { deletePnlEntryAction, updatePnlEntryAction } from "@/app/actions";
 import { formatCents, formatDate, msToDateInput, categoryLabel } from "@/lib/format";
 import type { PnlEntry } from "@/lib/pnl";
+import type { Category } from "@/lib/categories";
+import { cn } from "@/lib/utils";
 
 export function PnlEntriesTable({
   entries,
   ventureSlug,
+  categories,
 }: {
   entries: PnlEntry[];
   ventureSlug: string;
+  categories: Category[];
 }) {
   const [editing, setEditing] = useState<PnlEntry | null>(null);
+  const hasClients = entries.some((e) => e.clientName);
 
   return (
     <>
@@ -40,6 +52,7 @@ export function PnlEntriesTable({
             <TableHead>Date</TableHead>
             <TableHead>Type</TableHead>
             <TableHead>Category</TableHead>
+            {hasClients && <TableHead>Client</TableHead>}
             <TableHead className="text-right">Amount</TableHead>
             <TableHead />
           </TableRow>
@@ -47,17 +60,30 @@ export function PnlEntriesTable({
         <TableBody>
           {entries.length === 0 && (
             <TableRow>
-              <TableCell colSpan={5} className="text-center text-muted-foreground">
-                No entries yet
+              <TableCell colSpan={hasClients ? 6 : 5} className="py-8 text-center text-muted-foreground">
+                No money logged yet. Use the + button to record revenue or costs.
               </TableCell>
             </TableRow>
           )}
           {entries.map((e) => (
             <TableRow key={e.id}>
-              <TableCell>{formatDate(e.occurredOn)}</TableCell>
-              <TableCell className="capitalize">{e.entryType}</TableCell>
+              <TableCell className="text-muted-foreground">{formatDate(e.occurredOn)}</TableCell>
+              <TableCell>
+                <span
+                  className={cn(
+                    "rounded-full px-2 py-0.5 text-xs font-medium capitalize",
+                    e.entryType === "revenue" && "status-up",
+                    e.entryType === "cost" && "status-flat"
+                  )}
+                >
+                  {e.entryType}
+                </span>
+              </TableCell>
               <TableCell>{categoryLabel(e.category)}</TableCell>
-              <TableCell className="text-right tabular-nums">
+              {hasClients && (
+                <TableCell className="text-muted-foreground">{e.clientName ?? "—"}</TableCell>
+              )}
+              <TableCell className="text-right tabular-nums font-medium">
                 {e.entryType === "cost" ? "−" : "+"}
                 {formatCents(e.amountCents)}
               </TableCell>
@@ -75,6 +101,7 @@ export function PnlEntriesTable({
         <EditEntryDialog
           entry={editing}
           ventureSlug={ventureSlug}
+          categories={categories.filter((c) => c.entryType === editing.entryType)}
           onClose={() => setEditing(null)}
         />
       )}
@@ -85,10 +112,12 @@ export function PnlEntriesTable({
 function EditEntryDialog({
   entry,
   ventureSlug,
+  categories,
   onClose,
 }: {
   entry: PnlEntry;
   ventureSlug: string;
+  categories: Category[];
   onClose: () => void;
 }) {
   const [amount, setAmount] = useState((entry.amountCents / 100).toFixed(2));
@@ -125,7 +154,7 @@ function EditEntryDialog({
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Edit entry</DialogTitle>
+          <DialogTitle>Edit ledger entry</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
           <div>
@@ -138,16 +167,27 @@ function EditEntryDialog({
           </div>
           <div>
             <Label>Category</Label>
-            <Input value={category} onChange={(e) => setCategory(e.target.value)} className="mt-1" />
+            <Select value={category} onValueChange={(v) => setCategory(v ?? category)}>
+              <SelectTrigger className="mt-1 w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {categories.map((c) => (
+                  <SelectItem key={c.id} value={c.label}>
+                    {categoryLabel(c.label)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div>
-            <Label>Notes</Label>
+            <Label>Notes (optional)</Label>
             <Input value={notes} onChange={(e) => setNotes(e.target.value)} className="mt-1" />
           </div>
           <Button className="w-full" onClick={handleSave} disabled={saving}>
-            Save
+            Save changes
           </Button>
-          <Button variant="outline" className="w-full" onClick={handleDelete}>
+          <Button variant="outline" className="w-full text-muted-foreground" onClick={handleDelete}>
             Delete entry
           </Button>
         </div>

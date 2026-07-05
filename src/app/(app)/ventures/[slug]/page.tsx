@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { PageHeader, SectionCard } from "@/components/ui/page-header";
 import { MoneyBlock } from "@/components/portfolio/MoneyBlock";
 import { ReferencePanel } from "@/components/portfolio/ReferencePanel";
 import { PnlEntriesTable } from "@/components/ventures/PnlEntriesTable";
@@ -12,9 +13,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getVentureBySlug } from "@/lib/ventures";
 import { listPnlEntries, monthlyTrend, ventureNetThisMonth } from "@/lib/pnl";
 import { getKpisWithLatest } from "@/lib/kpis";
-import { listCheckins } from "@/lib/checkins";
+import { listCheckins, getLatestCheckin } from "@/lib/checkins";
 import { listFacts, listLinks } from "@/lib/reference";
 import { listClients } from "@/lib/clients";
+import { listCategories } from "@/lib/categories";
 import { STUDIO_SLUG } from "@/lib/venture-config";
 import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -28,119 +30,152 @@ export default async function VenturePage({
   const venture = await getVentureBySlug(slug);
   if (!venture) notFound();
 
-  const [netMonth, trend, entries, kpis, checkins, facts, links, clients] = await Promise.all([
-    ventureNetThisMonth(venture.id),
-    monthlyTrend(venture.id, 6),
-    listPnlEntries({ ventureId: venture.id, limit: 30 }),
-    getKpisWithLatest(venture.id),
-    listCheckins(venture.id, 10),
-    listFacts(venture.id),
-    listLinks(venture.id),
-    slug === STUDIO_SLUG ? listClients() : Promise.resolve([]),
-  ]);
+  const [netMonth, trend, entries, kpis, checkins, latestCheckin, facts, links, clients, allCategories] =
+    await Promise.all([
+      ventureNetThisMonth(venture.id),
+      monthlyTrend(venture.id, 6),
+      listPnlEntries({ ventureId: venture.id, limit: 30 }),
+      getKpisWithLatest(venture.id),
+      listCheckins(venture.id, 10),
+      getLatestCheckin(venture.id),
+      listFacts(venture.id),
+      listLinks(venture.id),
+      slug === STUDIO_SLUG ? listClients() : Promise.resolve([]),
+      listCategories(),
+    ]);
 
   const isStudio = slug === STUDIO_SLUG;
+  const trendValues = trend.map((t) => t.netCents);
+  const trendLabels = trend.map((t) => t.month);
 
   return (
-    <div className="space-y-8">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <Link href="/ventures" className="text-xs text-muted-foreground hover:underline">
-            ← Ventures
+    <div className="space-y-6 pb-4">
+      <PageHeader
+        eyebrow={
+          <Link href="/ventures" className="hover:text-primary">
+            ← All ventures
           </Link>
-          <h1 className="mt-1 text-2xl font-semibold">{venture.name}</h1>
-          {venture.oneLiner && (
-            <p className="text-sm text-muted-foreground">{venture.oneLiner}</p>
-          )}
-          <Badge
-            variant="outline"
-            className={cn(
-              "mt-2 border-0 capitalize",
-              venture.status === "active" && "status-up",
-              venture.status === "paused" && "status-flat"
-            )}
-          >
-            {venture.status}
-          </Badge>
-        </div>
-        <VentureEditDialog venture={venture} />
-      </header>
-
-      <MoneyBlock
-        label="Net this month"
-        cents={netMonth}
-        trend={trend.map((t) => t.netCents)}
+        }
+        title={venture.name}
+        description={venture.oneLiner ?? undefined}
+        actions={
+          <div className="flex items-center gap-2">
+            <Badge
+              variant="outline"
+              className={cn(
+                "border-0 capitalize",
+                venture.status === "active" && "status-up",
+                venture.status === "paused" && "status-flat"
+              )}
+            >
+              {venture.status}
+            </Badge>
+            <VentureEditDialog venture={venture} />
+          </div>
+        }
       />
 
-      <section>
-        <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-muted-foreground">
-          P&L entries
-        </h2>
-        <PnlEntriesTable entries={entries} ventureSlug={slug} />
-      </section>
-
-      <section>
-        <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-muted-foreground">
-          Health metrics
-        </h2>
-        <KpiSection ventureId={venture.id} ventureSlug={slug} kpis={kpis} />
-      </section>
-
-      <section>
-        <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-muted-foreground">
-          Check-in history
-        </h2>
-        {checkins.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No check-ins yet</p>
-        ) : (
-          <ul className="space-y-2">
-            {checkins.map((c) => (
-              <li key={c.id} className="flex items-center gap-3 rounded-lg border px-4 py-2 text-sm">
-                <span
-                  className={cn(
-                    "rounded px-2 py-0.5 text-xs capitalize",
-                    c.trajectory === "up" && "status-up",
-                    c.trajectory === "flat" && "status-flat",
-                    c.trajectory === "down" && "status-down"
-                  )}
-                >
-                  {c.trajectory}
-                </span>
-                <span className="text-muted-foreground">{formatDate(c.checkedAt)}</span>
-                {c.note && <span>{c.note}</span>}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      {isStudio && (
-        <section>
-          <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-muted-foreground">
-            Studio pipeline
-          </h2>
-          <Tabs defaultValue="pipeline">
-            <TabsList>
-              <TabsTrigger value="pipeline">Pipeline</TabsTrigger>
-              <TabsTrigger value="clients">Clients</TabsTrigger>
-            </TabsList>
-            <TabsContent value="pipeline" className="mt-4">
-              <PipelineBoard clients={clients} studioVentureId={venture.id} />
-            </TabsContent>
-            <TabsContent value="clients" className="mt-4">
-              <ClientList clients={clients} />
-            </TabsContent>
-          </Tabs>
-        </section>
+      {latestCheckin?.trajectory === "down" && latestCheckin.note && (
+        <div className="rounded-2xl border border-red-200/80 bg-red-50/80 px-5 py-4 dark:border-red-900/50 dark:bg-red-950/20">
+          <p className="font-mono text-[11px] font-medium uppercase tracking-wider text-red-700 dark:text-red-400">
+            Blocker · check-in {formatDate(latestCheckin.checkedAt)}
+          </p>
+          <p className="mt-2 text-sm leading-relaxed text-red-900 dark:text-red-200">{latestCheckin.note}</p>
+        </div>
       )}
 
-      <ReferencePanel
-        facts={facts}
-        links={links}
-        scope={venture.id}
-        ventureSlug={slug}
-        title="Reference"
-      />
+      <Tabs defaultValue="overview" className="space-y-6">
+        <TabsList className="h-auto w-full justify-start gap-1 rounded-xl bg-muted/60 p-1">
+          <TabsTrigger value="overview" className="rounded-lg px-4 py-2">
+            Overview
+          </TabsTrigger>
+          <TabsTrigger value="ledger" className="rounded-lg px-4 py-2">
+            Ledger
+          </TabsTrigger>
+          <TabsTrigger value="ritual" className="rounded-lg px-4 py-2">
+            Check-ins
+          </TabsTrigger>
+          {isStudio && (
+            <TabsTrigger value="pipeline" className="rounded-lg px-4 py-2">
+              Pipeline
+            </TabsTrigger>
+          )}
+          <TabsTrigger value="reference" className="rounded-lg px-4 py-2">
+            Reference
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview" className="space-y-6">
+          <MoneyBlock
+            label="Net this month"
+            cents={netMonth}
+            trend={trendValues}
+            trendLabels={trendLabels}
+          />
+          <SectionCard
+            title="Health metrics"
+            description="Separate from money — track subscribers, users, clients, or custom counts"
+          >
+            <KpiSection ventureId={venture.id} ventureSlug={slug} kpis={kpis} />
+          </SectionCard>
+        </TabsContent>
+
+        <TabsContent value="ledger">
+          <SectionCard title="Money ledger" description="All revenue and costs for this venture">
+            <PnlEntriesTable entries={entries} ventureSlug={slug} categories={allCategories} />
+          </SectionCard>
+        </TabsContent>
+
+        <TabsContent value="ritual">
+          <SectionCard title="Weekly check-ins" description="Trajectory and blocker notes over time">
+            {checkins.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No check-ins yet. Run the weekly check-in from the portfolio home.
+              </p>
+            ) : (
+              <ul className="space-y-3">
+                {checkins.map((c) => (
+                  <li key={c.id} className="rounded-xl border border-border/70 px-4 py-3">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span
+                        className={cn(
+                          "rounded-full px-2.5 py-0.5 text-xs font-medium capitalize",
+                          c.trajectory === "up" && "status-up",
+                          c.trajectory === "flat" && "status-flat",
+                          c.trajectory === "down" && "status-down"
+                        )}
+                      >
+                        {c.trajectory}
+                      </span>
+                      <span className="text-sm text-muted-foreground">{formatDate(c.checkedAt)}</span>
+                    </div>
+                    {c.note ? (
+                      <p className="mt-2 text-sm leading-relaxed">{c.note}</p>
+                    ) : (
+                      <p className="mt-2 text-sm italic text-muted-foreground">No note</p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </SectionCard>
+        </TabsContent>
+
+        {isStudio && (
+          <TabsContent value="pipeline" className="space-y-6">
+            <SectionCard title="Pipeline board" description="Drag clients between stages">
+              <PipelineBoard clients={clients} studioVentureId={venture.id} />
+            </SectionCard>
+            <SectionCard title="Client revenue" description="Lifetime revenue linked from ledger entries">
+              <ClientList clients={clients} />
+            </SectionCard>
+          </TabsContent>
+        )}
+
+        <TabsContent value="reference">
+          <ReferencePanel facts={facts} links={links} scope={venture.id} ventureSlug={slug} title="Reference" />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

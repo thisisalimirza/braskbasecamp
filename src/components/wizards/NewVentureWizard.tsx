@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { createVentureAction } from "@/app/actions";
+import { KPI_PRESETS, KPI_UNITS } from "@/lib/kpi-units";
 import type { VentureType, VentureStatus } from "@/lib/ventures";
 
 type KpiDraft = { name: string; unit: string };
@@ -86,10 +87,39 @@ function NewVentureContent({ onDone }: { onDone: () => void }) {
       </WizardStep>
 
       <WizardStep step={1}>
-        <p className="text-sm text-muted-foreground">Define 1–3 health metrics, or skip for now.</p>
+        <p className="text-sm text-muted-foreground">
+          Pick metrics to track, or skip and add them later on the venture page.
+        </p>
+        {!skipKpis && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {KPI_PRESETS.map((preset) => (
+              <Button
+                key={preset.name}
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const exists = kpis.some((k) => k.name === preset.name);
+                  if (!exists && kpis.length < 3) {
+                    const empty = kpis.findIndex((k) => !k.name.trim());
+                    if (empty >= 0) {
+                      const nextKpis = [...kpis];
+                      nextKpis[empty] = { name: preset.name, unit: preset.unit };
+                      setKpis(nextKpis);
+                    } else if (kpis.length < 3) {
+                      setKpis([...kpis, { name: preset.name, unit: preset.unit }]);
+                    }
+                  }
+                }}
+              >
+                {preset.name}
+              </Button>
+            ))}
+          </div>
+        )}
         {!skipKpis &&
           kpis.map((kpi, i) => (
-            <div key={i} className="mt-3 grid grid-cols-2 gap-2">
+            <div key={i} className="mt-3 grid gap-2 sm:grid-cols-[1fr_160px]">
               <Input
                 placeholder="Metric name"
                 value={kpi.name}
@@ -99,15 +129,25 @@ function NewVentureContent({ onDone }: { onDone: () => void }) {
                   setKpis(nextKpis);
                 }}
               />
-              <Input
-                placeholder="Unit (count, $, %)"
+              <Select
                 value={kpi.unit}
-                onChange={(e) => {
+                onValueChange={(v) => {
                   const nextKpis = [...kpis];
-                  nextKpis[i] = { ...nextKpis[i], unit: e.target.value };
+                  nextKpis[i] = { ...nextKpis[i], unit: v ?? "count" };
                   setKpis(nextKpis);
                 }}
-              />
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {KPI_UNITS.map((u) => (
+                    <SelectItem key={u.value} value={u.value}>
+                      {u.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           ))}
         {!skipKpis && kpis.length < 3 && (

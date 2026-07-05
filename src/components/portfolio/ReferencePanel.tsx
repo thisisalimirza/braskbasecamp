@@ -7,15 +7,23 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   createFactAction,
   createLinkAction,
-  updateFactAction,
-  updateLinkAction,
   deleteFactAction,
   deleteLinkAction,
 } from "@/app/actions";
 import type { ReferenceFact, ReferenceLink } from "@/lib/reference";
 import { toast } from "sonner";
+
+const FACT_CATEGORIES = ["legal", "financial", "credentials", "other"] as const;
+const LINK_CATEGORIES = ["repo", "analytics", "banking", "docs", "social", "other"] as const;
 
 export function ReferencePanel({
   facts,
@@ -31,40 +39,24 @@ export function ReferencePanel({
   title?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const ventureFacts = facts.filter((f) => f.scope !== "global");
-  const globalFacts = facts.filter((f) => f.scope === "global");
-  const ventureLinks = links.filter((l) => l.scope !== "global");
-  const globalLinks = links.filter((l) => l.scope === "global");
 
   return (
-    <Collapsible open={open} onOpenChange={setOpen} className="rounded-xl border">
-      <CollapsibleTrigger className="flex w-full items-center gap-2 px-4 py-3 text-left text-sm font-medium">
-        {open ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
-        {title}
-        <span className="ml-auto text-xs text-muted-foreground">
-          {facts.length + links.length} items
-        </span>
+    <Collapsible open={open} onOpenChange={setOpen} className="rounded-2xl border border-border/80 bg-card shadow-sm">
+      <CollapsibleTrigger className="flex w-full items-center gap-2 px-5 py-4 text-left">
+        {open ? <ChevronDown className="size-4 text-muted-foreground" /> : <ChevronRight className="size-4 text-muted-foreground" />}
+        <span className="font-heading text-base font-semibold">{title}</span>
+        <span className="ml-auto text-xs text-muted-foreground">{facts.length + links.length} saved</span>
       </CollapsibleTrigger>
-      <CollapsibleContent className="space-y-4 border-t px-4 py-3">
-        {ventureFacts.length > 0 && (
-          <Section title="Venture facts" items={ventureFacts} type="fact" ventureSlug={ventureSlug} />
-        )}
-        {globalFacts.length > 0 && (
-          <Section title="Brask Group" items={globalFacts} type="fact" ventureSlug={ventureSlug} />
-        )}
-        {ventureLinks.length > 0 && (
-          <Section title="Venture links" items={ventureLinks} type="link" ventureSlug={ventureSlug} />
-        )}
-        {globalLinks.length > 0 && (
-          <Section title="Global links" items={globalLinks} type="link" ventureSlug={ventureSlug} />
-        )}
+      <CollapsibleContent className="space-y-5 border-t border-border/60 px-5 py-4">
+        <ReferenceList title="Facts" items={facts} type="fact" ventureSlug={ventureSlug} />
+        <ReferenceList title="Links" items={links} type="link" ventureSlug={ventureSlug} />
         <AddReferenceForm scope={scope} ventureSlug={ventureSlug} />
       </CollapsibleContent>
     </Collapsible>
   );
 }
 
-function Section({
+function ReferenceList({
   title,
   items,
   type,
@@ -75,13 +67,14 @@ function Section({
   type: "fact" | "link";
   ventureSlug?: string;
 }) {
+  if (items.length === 0) return null;
   return (
     <div>
-      <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">{title}</p>
+      <p className="mb-2 font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">{title}</p>
       <ul className="space-y-2">
         {items.map((item) => (
-          <li key={item.id} className="flex items-start justify-between gap-2 text-sm">
-            <div className="min-w-0 flex-1">
+          <li key={item.id} className="flex items-start justify-between gap-3 rounded-lg bg-muted/40 px-3 py-2 text-sm">
+            <div className="min-w-0">
               <p className="font-medium">{item.label}</p>
               {type === "fact" ? (
                 <p className="text-muted-foreground">{(item as ReferenceFact).value || "—"}</p>
@@ -123,24 +116,27 @@ function AddReferenceForm({ scope, ventureSlug }: { scope: string; ventureSlug?:
   const [mode, setMode] = useState<"fact" | "link">("fact");
   const [label, setLabel] = useState("");
   const [value, setValue] = useState("");
+  const [category, setCategory] = useState("other");
 
   const handleAdd = async () => {
     if (!label.trim() || !value.trim()) return;
     const res =
       mode === "fact"
-        ? await createFactAction({ scope, label: label.trim(), value: value.trim(), ventureSlug })
-        : await createLinkAction({ scope, label: label.trim(), url: value.trim(), ventureSlug });
+        ? await createFactAction({ scope, label: label.trim(), value: value.trim(), category, ventureSlug })
+        : await createLinkAction({ scope, label: label.trim(), url: value.trim(), category, ventureSlug });
     if (res.error) toast.error(res.error);
     else {
-      toast.success("Added");
+      toast.success("Saved");
       setLabel("");
       setValue("");
     }
   };
 
+  const categories = mode === "fact" ? FACT_CATEGORIES : LINK_CATEGORIES;
+
   return (
-    <div className="rounded-lg bg-muted/40 p-3">
-      <div className="mb-2 flex gap-2">
+    <div className="rounded-xl border border-dashed border-border/80 p-4">
+      <div className="mb-3 flex gap-2">
         <Button type="button" size="sm" variant={mode === "fact" ? "default" : "outline"} onClick={() => setMode("fact")}>
           Fact
         </Button>
@@ -148,19 +144,34 @@ function AddReferenceForm({ scope, ventureSlug }: { scope: string; ventureSlug?:
           Link
         </Button>
       </div>
-      <div className="grid gap-2">
+      <div className="grid gap-3 sm:grid-cols-2">
         <div>
-          <Label>Label</Label>
-          <Input value={label} onChange={(e) => setLabel(e.target.value)} className="mt-1" />
+          <Label className="text-xs">Label</Label>
+          <Input value={label} onChange={(e) => setLabel(e.target.value)} className="mt-1" placeholder="Stripe dashboard" />
         </div>
         <div>
-          <Label>{mode === "fact" ? "Value" : "URL"}</Label>
+          <Label className="text-xs">Category</Label>
+          <Select value={category} onValueChange={(v) => setCategory(v ?? "other")}>
+            <SelectTrigger className="mt-1 w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {categories.map((c) => (
+                <SelectItem key={c} value={c} className="capitalize">
+                  {c}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="sm:col-span-2">
+          <Label className="text-xs">{mode === "fact" ? "Value" : "URL"}</Label>
           <Input value={value} onChange={(e) => setValue(e.target.value)} className="mt-1" />
         </div>
-        <Button type="button" size="sm" onClick={handleAdd}>
-          Add
-        </Button>
       </div>
+      <Button type="button" size="sm" className="mt-3" onClick={handleAdd}>
+        Add {mode}
+      </Button>
     </div>
   );
 }

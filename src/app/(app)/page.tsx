@@ -1,131 +1,83 @@
 import Link from "next/link";
+import { PageHeader, SectionCard } from "@/components/ui/page-header";
 import { MoneyBlock } from "@/components/portfolio/MoneyBlock";
+import { VentureHealthTable } from "@/components/portfolio/VentureHealthTable";
 import { ReferencePanel } from "@/components/portfolio/ReferencePanel";
 import { PortfolioActions } from "@/components/portfolio/PortfolioActions";
-import { Badge } from "@/components/ui/badge";
-import { companyNetThisMonth, monthlyTrend, ventureRanking, ownerEquityCents } from "@/lib/pnl";
-import { getAttentionItems, getBiggestProblem } from "@/lib/attention";
+import { companyNetThisMonth, monthlyTrend, ownerEquityCents } from "@/lib/pnl";
+import { getVentureHealthSummaries } from "@/lib/venture-health";
 import { listGlobalFacts, listLinks } from "@/lib/reference";
-import { formatCents, startOfMonthMs } from "@/lib/format";
-import { cn } from "@/lib/utils";
+import { formatCents } from "@/lib/format";
 
 export default async function PortfolioPage() {
-  const [
-    netThisMonth,
-    trend,
-    ranking,
-    attention,
-    problem,
-    ownerEquity,
-    globalFacts,
-    globalLinks,
-  ] = await Promise.all([
-    companyNetThisMonth(),
-    monthlyTrend(null, 6),
-    ventureRanking(startOfMonthMs()),
-    getAttentionItems(),
-    getBiggestProblem(),
-    ownerEquityCents(),
-    listGlobalFacts(),
-    listLinks("global"),
-  ]);
+  const [netThisMonth, trend, summaries, ownerEquity, globalFacts, globalLinks] =
+    await Promise.all([
+      companyNetThisMonth(),
+      monthlyTrend(null, 6),
+      getVentureHealthSummaries(),
+      ownerEquityCents(),
+      listGlobalFacts(),
+      listLinks("global"),
+    ]);
 
   const trendValues = trend.map((t) => t.netCents);
+  const trendLabels = trend.map((t) => t.month);
+  const attentionCount = summaries.filter((s) => s.reasons.length > 0).length;
+  const topBlocker = summaries.find((s) => s.trajectory === "down" && s.lastCheckinNote);
 
   return (
-    <div className="space-y-8">
-      <section className="space-y-4">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <MoneyBlock label="Company net this month" cents={netThisMonth} trend={trendValues} />
-          {problem && (
-            <div
-              className={cn(
-                "rounded-xl p-4",
-                problem.netCents < 0 ? "money-negative" : "money-neutral"
-              )}
-            >
-              <p className="text-xs font-medium uppercase tracking-wide opacity-70">
-                Biggest attention
-              </p>
-              <Link href={`/ventures/${problem.ventureSlug}`} className="mt-1 block">
-                <p className="text-xl font-semibold hover:underline">{problem.ventureName}</p>
-                <p className="text-sm opacity-80">{formatCents(problem.netCents)} this month</p>
+    <div className="space-y-8 pb-4">
+      <PageHeader
+        eyebrow="Brask Group"
+        title="Base Camp"
+        description={
+          attentionCount > 0
+            ? `${attentionCount} venture${attentionCount === 1 ? "" : "s"} need your attention this week.`
+            : "All ventures checked in recently. Company pulse looks steady."
+        }
+        actions={<PortfolioActions />}
+      />
+
+      <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
+        <MoneyBlock
+          label="Company net · this month"
+          cents={netThisMonth}
+          trend={trendValues}
+          trendLabels={trendLabels}
+        />
+        <div className="flex flex-col gap-4">
+          {topBlocker ? (
+            <SectionCard title="Active blocker" description="From latest check-in">
+              <Link href={`/ventures/${topBlocker.venture.slug}`} className="group block">
+                <p className="font-heading text-lg font-semibold group-hover:text-primary">
+                  {topBlocker.venture.name}
+                </p>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                  {topBlocker.lastCheckinNote}
+                </p>
+                <p className="mt-3 text-xs font-medium text-primary">View venture →</p>
               </Link>
-            </div>
+            </SectionCard>
+          ) : (
+            <SectionCard title="Owner equity" description="Contributions minus draws">
+              <p className="font-heading text-3xl font-semibold tabular-nums">{formatCents(ownerEquity)}</p>
+            </SectionCard>
           )}
         </div>
-        <PortfolioActions />
-      </section>
+      </div>
 
-      {attention.length > 0 && (
-        <section>
-          <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-muted-foreground">
-            Needs attention
-          </h2>
-          <div className="space-y-2">
-            {attention.map((item) => (
-              <Link
-                key={item.ventureId}
-                href={`/ventures/${item.ventureSlug}`}
-                className="flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm transition hover:bg-red-100 dark:border-red-900 dark:bg-red-950/30 dark:hover:bg-red-950/50"
-              >
-                <span className="font-medium">{item.ventureName}</span>
-                <span className="text-xs text-muted-foreground">{item.message}</span>
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
-
-      <section>
-        <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-muted-foreground">
-          Ventures this month
-        </h2>
-        <div className="space-y-2">
-          {ranking.map((v, i) => (
-            <Link
-              key={v.id}
-              href={`/ventures/${v.slug}`}
-              className="flex items-center justify-between rounded-lg border px-4 py-3 transition hover:bg-muted/50"
-            >
-              <div className="flex items-center gap-3">
-                <span className="text-xs text-muted-foreground w-4">{i + 1}</span>
-                <span className="font-medium">{v.name}</span>
-                {v.netCents < 0 && (
-                  <Badge variant="outline" className="status-down border-0 text-xs">
-                    Negative
-                  </Badge>
-                )}
-              </div>
-              <span
-                className={cn(
-                  "tabular-nums font-medium",
-                  v.netCents > 0 && "text-emerald-700 dark:text-emerald-400",
-                  v.netCents < 0 && "text-red-700 dark:text-red-400"
-                )}
-              >
-                {formatCents(v.netCents)}
-              </span>
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      <section className="grid gap-4 sm:grid-cols-2">
-        <div className="rounded-xl border p-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Owner equity
-          </p>
-          <p className="mt-1 text-2xl font-semibold tabular-nums">{formatCents(ownerEquity)}</p>
-          <p className="mt-1 text-xs text-muted-foreground">Contributions minus draws</p>
-        </div>
-      </section>
+      <SectionCard
+        title="Venture pulse"
+        description="Money, trajectory, and freshness — sorted by what needs you first"
+      >
+        <VentureHealthTable summaries={summaries} />
+      </SectionCard>
 
       <ReferencePanel
         facts={globalFacts}
         links={globalLinks}
         scope="global"
-        title="Brask Group reference"
+        title="Company reference"
       />
     </div>
   );
