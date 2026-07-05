@@ -46,12 +46,14 @@ export async function createCheckin(input: {
   checkedAt: number;
   trajectory: Trajectory;
   note?: string | null;
-}): Promise<void> {
+}): Promise<string> {
   const db = await getDb();
+  const id = newId();
   await db.execute({
     sql: "INSERT INTO checkins (id, venture_id, checked_at, trajectory, note, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-    args: [newId(), input.ventureId, input.checkedAt, input.trajectory, input.note ?? null, nowMs()],
+    args: [id, input.ventureId, input.checkedAt, input.trajectory, input.note ?? null, nowMs()],
   });
+  return id;
 }
 
 export async function lastCheckinDate(ventureId: string): Promise<number | null> {

@@ -10,11 +10,14 @@ import * as kpis from "@/lib/kpis";
 import * as checkins from "@/lib/checkins";
 import * as reference from "@/lib/reference";
 import * as clients from "@/lib/clients";
+import * as blockers from "@/lib/blockers";
+import * as plan from "@/lib/plan";
 import { dateToMs, dollarsToCents } from "@/lib/format";
 import type { VentureType, VentureStatus } from "@/lib/ventures";
 import type { PnlEntryType, OwnerDirection } from "@/lib/pnl";
 import type { Trajectory } from "@/lib/checkins";
 import type { ClientStage } from "@/lib/clients";
+import type { PlanItemStatus } from "@/lib/plan-types";
 
 export type FormState = { ok?: boolean; error?: string };
 
@@ -238,12 +241,20 @@ export async function saveWeeklyCheckinAction(
   return run(async () => {
     const checkedAt = Date.now();
     for (const item of items) {
-      await checkins.createCheckin({
+      const checkinId = await checkins.createCheckin({
         ventureId: item.ventureId,
         checkedAt,
         trajectory: item.trajectory,
         note: item.note,
       });
+      if (item.trajectory === "down" && item.note?.trim()) {
+        await blockers.createBlockerFromCheckin({
+          ventureId: item.ventureId,
+          checkinId,
+          body: item.note.trim(),
+          makePrimary: true,
+        });
+      }
       if (item.kpiUpdates) {
         for (const k of item.kpiUpdates) {
           await kpis.createKpiEntry({
@@ -259,6 +270,99 @@ export async function saveWeeklyCheckinAction(
       const v = await ventures.getVentureById(item.ventureId);
       if (v) revalidatePath(`/ventures/${v.slug}`);
     }
+  });
+}
+
+// --- Blockers ---
+
+export async function createBlockerAction(input: {
+  ventureId: string;
+  body: string;
+  makePrimary?: boolean;
+  ventureSlug?: string;
+}): Promise<FormState> {
+  return run(async () => {
+    await blockers.createBlocker({
+      ventureId: input.ventureId,
+      body: input.body,
+      makePrimary: input.makePrimary,
+    });
+    revalidateVenture(input.ventureSlug);
+  });
+}
+
+export async function updateBlockerAction(
+  id: string,
+  body: string,
+  ventureSlug?: string
+): Promise<FormState> {
+  return run(async () => {
+    await blockers.updateBlocker(id, body);
+    revalidateVenture(ventureSlug);
+  });
+}
+
+export async function setPrimaryBlockerAction(
+  ventureId: string,
+  blockerId: string,
+  ventureSlug?: string
+): Promise<FormState> {
+  return run(async () => {
+    await blockers.setPrimaryBlocker(ventureId, blockerId);
+    revalidateVenture(ventureSlug);
+  });
+}
+
+export async function resolveBlockerAction(id: string, ventureSlug?: string): Promise<FormState> {
+  return run(async () => {
+    await blockers.resolveBlocker(id);
+    revalidateVenture(ventureSlug);
+  });
+}
+
+// --- Plan ---
+
+export async function createPlanItemAction(input: {
+  ventureId: string;
+  title: string;
+  notes?: string | null;
+  status?: PlanItemStatus;
+  blockerId?: string | null;
+  ventureSlug?: string;
+}): Promise<FormState> {
+  return run(async () => {
+    await plan.createPlanItem(input);
+    revalidateVenture(input.ventureSlug);
+  });
+}
+
+export async function updatePlanItemAction(
+  id: string,
+  input: Partial<{ title: string; notes: string | null; blockerId: string | null }>,
+  ventureSlug?: string
+): Promise<FormState> {
+  return run(async () => {
+    await plan.updatePlanItem(id, input);
+    revalidateVenture(ventureSlug);
+  });
+}
+
+export async function movePlanItemAction(
+  id: string,
+  status: PlanItemStatus,
+  sortOrder: number,
+  ventureSlug?: string
+): Promise<FormState> {
+  return run(async () => {
+    await plan.movePlanItem(id, status, sortOrder);
+    revalidateVenture(ventureSlug);
+  });
+}
+
+export async function deletePlanItemAction(id: string, ventureSlug?: string): Promise<FormState> {
+  return run(async () => {
+    await plan.deletePlanItem(id);
+    revalidateVenture(ventureSlug);
   });
 }
 

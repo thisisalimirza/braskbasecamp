@@ -1,5 +1,6 @@
 import type { AttentionReason } from "./attention";
 import type { VentureHealth } from "./venture-health";
+import type { PlanItemStatus } from "./plan-types";
 
 export const TRAJECTORY_LABELS = {
   up: "Improving",
@@ -9,7 +10,7 @@ export const TRAJECTORY_LABELS = {
 
 export type VentureAction = {
   label: string;
-  type: "pulse" | "record_revenue" | "record_cost" | "view_venture" | "none";
+  type: "pulse" | "record_revenue" | "record_cost" | "view_venture" | "view_plan" | "none";
   ventureId?: string;
   ventureSlug?: string;
   kind?: "revenue" | "cost";
@@ -46,9 +47,31 @@ const REASON_ACTIONS: Record<AttentionReason, (row: VentureHealth) => VentureAct
 
 export function primaryActionForVenture(row: VentureHealth): VentureAction {
   if (row.reasons.length === 0) {
+    if (row.focusPlanItem) {
+      const doing = row.focusPlanItem.status === "doing";
+      return {
+        label: doing ? "Continue" : "Start next",
+        type: "view_plan",
+        ventureSlug: row.venture.slug,
+        hint: row.focusPlanItem.title,
+      };
+    }
     return { label: "All set", type: "none" };
   }
   return REASON_ACTIONS[row.reasons[0]](row);
+}
+
+export function planStatusLabel(status: PlanItemStatus): string {
+  switch (status) {
+    case "backlog":
+      return "Idea";
+    case "next":
+      return "Up next";
+    case "doing":
+      return "In progress";
+    case "done":
+      return "Done";
+  }
 }
 
 export function friendlyActionHint(reason: AttentionReason): string {

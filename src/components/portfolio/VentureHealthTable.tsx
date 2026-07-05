@@ -41,6 +41,7 @@ import {
 } from "@/components/AppShell";
 import { reorderVenturesPriorityAction } from "@/app/actions";
 import type { VentureHealth } from "@/lib/venture-health";
+import { attentionHeadline, portfolioAttentionSnippet } from "@/lib/venture-display";
 import { MoneyTrendBadge } from "@/components/portfolio/MoneyTrendBadge";
 import { VentureQuickNoteDialog } from "@/components/portfolio/VentureQuickNoteDialog";
 import { cn } from "@/lib/utils";
@@ -164,6 +165,22 @@ function NextAction({ action }: { action: VentureAction }) {
     );
   }
 
+  if (action.type === "view_plan" && action.ventureSlug) {
+    return (
+      <Link
+        href={`/ventures/${action.ventureSlug}?tab=plan`}
+        className={cn(
+          pillClass,
+          "border border-primary/20 bg-primary/[0.06] text-primary hover:border-primary/35 hover:bg-primary/10"
+        )}
+        title={action.hint}
+      >
+        {action.label}
+        <ArrowRight className="size-3.5 shrink-0 opacity-50" />
+      </Link>
+    );
+  }
+
   return (
     <Link
       href={`/ventures/${action.ventureSlug}`}
@@ -203,6 +220,8 @@ function VentureRow({
 }) {
   const needsAttention = row.reasons.length > 0;
   const action = primaryActionForVenture(row);
+  const blockerText = attentionHeadline(row);
+  const attentionContext = portfolioAttentionSnippet(row)?.context;
   const pulseMissing = !row.lastCheckinAt || row.lastCheckinAt < cutoff;
   const moneyMissing = !row.lastPnlAt || row.lastPnlAt < cutoff;
   const pulseLabel = relativeDays(row.lastCheckinAt);
@@ -249,12 +268,29 @@ function VentureRow({
         >
           {row.venture.name}
         </Link>
-        {row.lastCheckinNote && row.trajectory === "down" && (
-          <p className="mt-1 line-clamp-2 text-xs leading-snug text-red-700 dark:text-red-400">
-            Stuck on: {row.lastCheckinNote}
+        {blockerText && (
+          <p
+            className="mt-1 line-clamp-2 text-xs leading-snug text-red-700 dark:text-red-400"
+            title={attentionContext ?? undefined}
+          >
+            {row.trajectory === "down" && row.lastCheckinNote?.trim() === blockerText
+              ? "Latest: "
+              : "Blocked: "}
+            {blockerText}
+            {row.openBlockerCount > 1 && (
+              <span className="text-muted-foreground"> · +{row.openBlockerCount - 1} more</span>
+            )}
           </p>
         )}
-        {!row.lastCheckinNote && pulseMissing && (
+        {row.focusPlanItem && (
+          <Link
+            href={`/ventures/${row.venture.slug}?tab=plan`}
+            className="mt-1 block text-xs text-muted-foreground hover:text-primary"
+          >
+            Next: {row.focusPlanItem.title} →
+          </Link>
+        )}
+        {!blockerText && pulseMissing && (
           <button
             type="button"
             className="mt-1 text-xs text-amber-800 underline-offset-2 hover:underline dark:text-amber-300"

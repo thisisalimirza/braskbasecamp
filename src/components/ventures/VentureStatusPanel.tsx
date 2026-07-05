@@ -1,19 +1,30 @@
 "use client";
 
-import { AlertCircle, ClipboardList, TrendingDown, TrendingUp, Minus } from "lucide-react";
+import Link from "next/link";
+import { AlertCircle, ClipboardList, Star, ArrowRight, TrendingDown, TrendingUp, Minus } from "lucide-react";
 import { VentureDashboardCard } from "@/components/ventures/VentureDashboardCard";
 import { formatDate, daysAgoMs } from "@/lib/format";
-import { TRAJECTORY_LABELS } from "@/lib/next-actions";
+import { TRAJECTORY_LABELS, planStatusLabel } from "@/lib/next-actions";
 import { openWeeklyCheckinForVenture, openRecordMoneyPrefilled } from "@/components/AppShell";
 import type { Checkin } from "@/lib/checkins";
+import type { PlanItemStatus } from "@/lib/plan-types";
+import { portfolioAttentionSnippet } from "@/lib/venture-display";
 import { cn } from "@/lib/utils";
 
 export function VentureStatusPanel({
   latestCheckin,
   ventureId,
+  ventureSlug,
+  primaryBlocker,
+  openBlockerCount,
+  focusPlanItem,
 }: {
   latestCheckin: Checkin | null;
   ventureId: string;
+  ventureSlug: string;
+  primaryBlocker: { id: string; body: string } | null;
+  openBlockerCount: number;
+  focusPlanItem: { id: string; title: string; status: PlanItemStatus } | null;
 }) {
   const cutoff = daysAgoMs(14);
   const weekCutoff = daysAgoMs(7);
@@ -24,15 +35,22 @@ export function VentureStatusPanel({
     : null;
 
   const trajectory = latestCheckin?.trajectory ?? null;
-  const note = latestCheckin?.note?.trim() || null;
+  const attention = portfolioAttentionSnippet({
+    trajectory,
+    lastCheckinNote: latestCheckin?.note ?? null,
+    primaryBlocker,
+  });
 
   return (
     <VentureDashboardCard
       label="How it's going"
       footer={
-        <p className="text-xs text-muted-foreground">
-          Full history in the <strong>Past pulses</strong> tab below.
-        </p>
+        <Link
+          href={`/ventures/${ventureSlug}?tab=plan`}
+          className="text-xs font-medium text-primary hover:underline"
+        >
+          Open plan & blockers →
+        </Link>
       }
     >
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -47,26 +65,39 @@ export function VentureStatusPanel({
         )}
       </div>
 
-      {note ? (
-        <div
-          className={cn(
-            "mt-4 rounded-xl px-4 py-3 text-sm leading-relaxed",
-            trajectory === "down"
-              ? "border border-red-200/80 bg-red-50/90 text-red-950 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-100"
-              : "bg-muted/50 text-foreground"
-          )}
-        >
-          <p className="font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-            {trajectory === "down" ? "What's stuck" : "Latest note"}
+      {attention ? (
+        <div className="mt-4 rounded-xl border border-red-200/80 bg-red-50/90 px-4 py-3 text-sm leading-relaxed text-red-950 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-100">
+          <p className="flex items-center gap-1.5 font-mono text-[10px] font-medium uppercase tracking-wider text-red-800/80 dark:text-red-300/80">
+            {attention.badge === "Primary blocker" && <Star className="size-3 fill-current" />}
+            {attention.badge ?? "Needs attention"}
+            {openBlockerCount > 1 && ` · +${openBlockerCount - 1} more`}
           </p>
-          <p className="mt-1.5">{note}</p>
+          <p className="mt-1.5">{attention.headline}</p>
+          {attention.context && (
+            <p className="mt-2 text-xs text-red-900/70 dark:text-red-200/70">{attention.context}</p>
+          )}
         </div>
       ) : (
         <p className="mt-4 text-sm text-muted-foreground">
           {trajectory === "down"
-            ? "Marked as struggling — add a note next time so you remember what's in the way."
+            ? "Marked as struggling — log blockers on the Plan tab."
             : "No notes from the last pulse."}
         </p>
+      )}
+
+      {focusPlanItem && (
+        <Link
+          href={`/ventures/${ventureSlug}?tab=plan`}
+          className="mt-4 flex items-start gap-2 rounded-xl border border-primary/15 bg-primary/[0.04] px-4 py-3 transition-colors hover:bg-primary/[0.07]"
+        >
+          <div className="min-w-0 flex-1">
+            <p className="font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+              {planStatusLabel(focusPlanItem.status)}
+            </p>
+            <p className="mt-1 text-sm font-medium leading-snug">{focusPlanItem.title}</p>
+          </div>
+          <ArrowRight className="mt-0.5 size-4 shrink-0 text-primary/60" />
+        </Link>
       )}
 
       {stale && (
@@ -90,6 +121,14 @@ export function VentureStatusPanel({
             <ClipboardList className="size-3.5" />
             Run a pulse
           </button>
+        )}
+        {trajectory === "down" && (
+          <Link
+            href={`/ventures/${ventureSlug}?tab=plan`}
+            className="inline-flex h-9 items-center rounded-full border border-border/80 bg-background px-3.5 text-xs font-medium shadow-sm transition-all hover:bg-muted/60"
+          >
+            Log blocker
+          </Link>
         )}
         {trajectory === "down" && (
           <button

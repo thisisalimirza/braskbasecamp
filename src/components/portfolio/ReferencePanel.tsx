@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronRight, ExternalLink } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Button } from "@/components/ui/button";
@@ -38,6 +39,7 @@ export function ReferencePanel({
   ventureSlug?: string;
   title?: string;
 }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
 
   return (
@@ -48,9 +50,9 @@ export function ReferencePanel({
         <span className="ml-auto text-xs text-muted-foreground">{facts.length + links.length} saved</span>
       </CollapsibleTrigger>
       <CollapsibleContent className="space-y-5 border-t border-border/60 px-5 py-4">
-        <ReferenceList title="Facts" items={facts} type="fact" ventureSlug={ventureSlug} />
-        <ReferenceList title="Links" items={links} type="link" ventureSlug={ventureSlug} />
-        <AddReferenceForm scope={scope} ventureSlug={ventureSlug} />
+        <ReferenceList title="Facts" items={facts} type="fact" ventureSlug={ventureSlug} onChanged={() => router.refresh()} />
+        <ReferenceList title="Links" items={links} type="link" ventureSlug={ventureSlug} onChanged={() => router.refresh()} />
+        <AddReferenceForm scope={scope} ventureSlug={ventureSlug} onChanged={() => router.refresh()} />
       </CollapsibleContent>
     </Collapsible>
   );
@@ -61,11 +63,13 @@ function ReferenceList({
   items,
   type,
   ventureSlug,
+  onChanged,
 }: {
   title: string;
   items: (ReferenceFact | ReferenceLink)[];
   type: "fact" | "link";
   ventureSlug?: string;
+  onChanged: () => void;
 }) {
   if (items.length === 0) return null;
   return (
@@ -101,6 +105,10 @@ function ReferenceList({
                     ? await deleteFactAction(item.id, ventureSlug)
                     : await deleteLinkAction(item.id, ventureSlug);
                 if (res.error) toast.error(res.error);
+                else {
+                  toast.success("Removed");
+                  onChanged();
+                }
               }}
             >
               Remove
@@ -112,7 +120,15 @@ function ReferenceList({
   );
 }
 
-function AddReferenceForm({ scope, ventureSlug }: { scope: string; ventureSlug?: string }) {
+function AddReferenceForm({
+  scope,
+  ventureSlug,
+  onChanged,
+}: {
+  scope: string;
+  ventureSlug?: string;
+  onChanged: () => void;
+}) {
   const [mode, setMode] = useState<"fact" | "link">("fact");
   const [label, setLabel] = useState("");
   const [value, setValue] = useState("");
@@ -129,6 +145,7 @@ function AddReferenceForm({ scope, ventureSlug }: { scope: string; ventureSlug?:
       toast.success("Saved");
       setLabel("");
       setValue("");
+      onChanged();
     }
   };
 

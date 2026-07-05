@@ -39,12 +39,12 @@ Migrations run automatically on first DB access against `file:./local.db`.
    turso db tokens create brask-base-camp
    ```
 
-2. Run migrations:
+2. Run migrations (pick one):
    ```bash
-   turso db shell brask-base-camp < migrations/001_schema.sql
-   turso db shell brask-base-camp < migrations/002_seed_categories.sql
-   turso db shell brask-base-camp < migrations/003_seed_ventures.sql
+   # Against Turso — set TURSO_DATABASE_URL and TURSO_AUTH_TOKEN first
+   npm run migrate
    ```
+   Migrations also run automatically on first DB access in the app, but running `npm run migrate` once after deploy confirms the remote schema is current (including `004` and `005`).
 
 3. Deploy to Vercel and set env vars (`TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`, `APP_PASSWORD`, `SESSION_SECRET`).
 

@@ -6,6 +6,7 @@ import { ReferencePanel } from "@/components/portfolio/ReferencePanel";
 import { PortfolioPulseBanner } from "@/components/portfolio/PortfolioPulseBanner";
 import { companyNetThisMonth, monthlyTrend, ownerEquityCents } from "@/lib/pnl";
 import { getVentureHealthSummaries } from "@/lib/venture-health";
+import { portfolioAttentionSnippet, topPortfolioAttention } from "@/lib/venture-display";
 import { getPortfolioRitualStatus, portfolioHeaderLine } from "@/lib/ritual";
 import { listGlobalFacts, listLinks } from "@/lib/reference";
 import { formatCents } from "@/lib/format";
@@ -25,7 +26,8 @@ export default async function PortfolioPage() {
   const trendValues = trend.map((t) => t.netCents);
   const trendLabels = trend.map((t) => t.month);
   const attentionCount = summaries.filter((s) => s.reasons.length > 0).length;
-  const topBlocker = summaries.find((s) => s.trajectory === "down" && s.lastCheckinNote);
+  const topAttention = topPortfolioAttention(summaries);
+  const attentionSnippet = topAttention ? portfolioAttentionSnippet(topAttention) : null;
 
   return (
     <div className="space-y-6 pb-4">
@@ -45,16 +47,38 @@ export default async function PortfolioPage() {
           trendLabels={trendLabels}
         />
         <div className="flex flex-col gap-4">
-          {topBlocker ? (
-            <SectionCard title="Needs attention" description="Highest-priority blocker">
-              <Link href={`/ventures/${topBlocker.venture.slug}`} className="group block">
+          {topAttention && attentionSnippet ? (
+            <SectionCard
+              title="Needs attention"
+              description={
+                attentionSnippet.badge === "Latest pulse"
+                  ? "From your most recent pulse"
+                  : "Your main blocker"
+              }
+            >
+              <Link href={`/ventures/${topAttention.venture.slug}?tab=plan`} className="group block">
                 <p className="font-heading text-lg font-semibold group-hover:text-primary">
-                  {topBlocker.venture.name}
+                  {topAttention.venture.name}
                 </p>
-                <p className="mt-2 text-sm leading-relaxed text-red-800 dark:text-red-300">
-                  {topBlocker.lastCheckinNote}
+                {attentionSnippet.badge && (
+                  <p className="mt-2 font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                    {attentionSnippet.badge}
+                  </p>
+                )}
+                <p className="mt-1 text-sm leading-relaxed text-red-800 dark:text-red-300">
+                  {attentionSnippet.headline}
                 </p>
-                <p className="mt-3 text-xs font-medium text-primary">Open venture →</p>
+                {attentionSnippet.context && (
+                  <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+                    {attentionSnippet.context}
+                  </p>
+                )}
+                {topAttention.focusPlanItem && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Next up: {topAttention.focusPlanItem.title}
+                  </p>
+                )}
+                <p className="mt-3 text-xs font-medium text-primary">Open plan →</p>
               </Link>
             </SectionCard>
           ) : (
