@@ -499,7 +499,7 @@ export function GlobalTasksBoard({
           )}
         </div>
       ) : view === "board" ? (
-        <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+        <DndContext id="global-tasks-board" sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
           <div
             className={cn(
               "grid gap-3 pb-4 sm:grid-cols-2",

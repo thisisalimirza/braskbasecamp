@@ -6,7 +6,7 @@ import { VentureDashboardCard } from "@/components/ventures/VentureDashboardCard
 import { PlanKpiBadge } from "@/components/plan/PlanKpiBadge";
 import { formatDate, daysAgoMs } from "@/lib/format";
 import { TRAJECTORY_LABELS, planStatusLabel } from "@/lib/next-actions";
-import { openWeeklyCheckinForVenture, openRecordMoneyPrefilled } from "@/components/AppShell";
+import { openWeeklyCheckinForVenture } from "@/components/AppShell";
 import type { Checkin } from "@/lib/checkins";
 import type { PlanItemStatus } from "@/lib/plan-types";
 import { portfolioAttentionSnippet } from "@/lib/venture-display";
@@ -115,8 +115,8 @@ export function VentureStatusPanel({
         </div>
       )}
 
-      <div className="mt-auto flex flex-wrap gap-2 pt-4">
-        {needsPulse && (
+      {needsPulse && (
+        <div className="mt-auto pt-4">
           <button
             type="button"
             className="inline-flex h-9 items-center gap-1.5 rounded-full border border-primary/20 bg-primary/[0.06] px-3.5 text-xs font-medium text-primary transition-all hover:bg-primary/10 active:scale-[0.98]"
@@ -125,25 +125,8 @@ export function VentureStatusPanel({
             <ClipboardList className="size-3.5" />
             Run a pulse
           </button>
-        )}
-        {trajectory === "down" && (
-          <Link
-            href={`/ventures/${ventureSlug}?tab=plan`}
-            className="inline-flex h-9 items-center rounded-full border border-border/80 bg-background px-3.5 text-xs font-medium shadow-sm transition-all hover:bg-muted/60"
-          >
-            Log blocker
-          </Link>
-        )}
-        {trajectory === "down" && (
-          <button
-            type="button"
-            className="inline-flex h-9 items-center rounded-full border border-border/80 bg-background px-3.5 text-xs font-medium shadow-sm transition-all hover:bg-muted/60 active:scale-[0.98]"
-            onClick={() => openRecordMoneyPrefilled({ ventureId, kind: "cost" })}
-          >
-            Log spending
-          </button>
-        )}
-      </div>
+        </div>
+      )}
     </VentureDashboardCard>
   );
 }

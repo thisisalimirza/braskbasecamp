@@ -393,7 +393,7 @@ export function VentureHealthTable({ summaries }: { summaries: VentureHealth[] }
         <div className="min-w-[720px]">
           {legend}
           {reorderMode ? (
-            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <DndContext id="venture-priorities" sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
               <SortableContext items={ids} strategy={verticalListSortingStrategy}>
                 <div className="divide-y divide-border/40">{rowElements}</div>
               </SortableContext>

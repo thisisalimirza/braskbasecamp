@@ -85,7 +85,6 @@ export default async function VenturePage({
         description={venture.oneLiner ?? undefined}
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            <VenturePageActions ventureId={venture.id} />
             <Badge
               variant="outline"
               className={cn(
@@ -96,6 +95,7 @@ export default async function VenturePage({
             >
               {venture.status}
             </Badge>
+            <VenturePageActions ventureId={venture.id} />
             <VentureEditDialog venture={venture} />
           </div>
         }

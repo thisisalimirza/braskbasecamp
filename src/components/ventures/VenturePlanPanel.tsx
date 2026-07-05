@@ -512,7 +512,7 @@ export function VenturePlanPanel({
             </Button>
           </div>
         ) : view === "board" ? (
-          <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+          <DndContext id="venture-plan-board" sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
             <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
               {PLAN_COLUMNS.map((col) => (
                 <PlanColumn
