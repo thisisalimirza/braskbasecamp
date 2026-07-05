@@ -47,22 +47,20 @@ function rowToLink(row: Record<string, unknown>): ReferenceLink {
 export async function listFacts(scope: string): Promise<ReferenceFact[]> {
   const db = await getDb();
   const res = await db.execute({
-    sql: "SELECT * FROM reference_facts WHERE scope = ? OR scope = 'global' ORDER BY category, label",
+    sql: "SELECT * FROM reference_facts WHERE scope = ? ORDER BY category, label, updated_at DESC",
     args: [scope],
   });
   return res.rows.map((r) => rowToFact(r as Record<string, unknown>));
 }
 
 export async function listGlobalFacts(): Promise<ReferenceFact[]> {
-  const db = await getDb();
-  const res = await db.execute("SELECT * FROM reference_facts WHERE scope = 'global' ORDER BY category, label");
-  return res.rows.map((r) => rowToFact(r as Record<string, unknown>));
+  return listFacts("global");
 }
 
 export async function listLinks(scope: string): Promise<ReferenceLink[]> {
   const db = await getDb();
   const res = await db.execute({
-    sql: "SELECT * FROM reference_links WHERE scope = ? OR scope = 'global' ORDER BY category, label",
+    sql: "SELECT * FROM reference_links WHERE scope = ? ORDER BY category, label, updated_at DESC",
     args: [scope],
   });
   return res.rows.map((r) => rowToLink(r as Record<string, unknown>));

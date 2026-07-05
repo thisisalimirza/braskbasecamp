@@ -1,6 +1,5 @@
 import { createClient, type Client } from "@libsql/client";
-import { readFileSync, readdirSync } from "fs";
-import { join } from "path";
+import { runMigrations } from "./migrate-runner";
 
 declare global {
   var __bbcDbClient: Client | undefined;
@@ -13,27 +12,12 @@ function makeClient(): Client {
   return createClient({ url, authToken });
 }
 
-function loadMigrations(): string[] {
-  const dir = join(process.cwd(), "migrations");
-  return readdirSync(dir)
-    .filter((f) => f.endsWith(".sql"))
-    .sort()
-    .map((f) => readFileSync(join(dir, f), "utf-8"));
-}
-
-async function migrate(client: Client): Promise<void> {
-  const migrations = loadMigrations();
-  for (const sql of migrations) {
-    await client.executeMultiple(sql);
-  }
-}
-
 export async function getDb(): Promise<Client> {
   if (!global.__bbcDbClient) {
     global.__bbcDbClient = makeClient();
   }
   if (!global.__bbcDbMigrated) {
-    global.__bbcDbMigrated = migrate(global.__bbcDbClient);
+    global.__bbcDbMigrated = runMigrations(global.__bbcDbClient);
   }
   await global.__bbcDbMigrated;
   return global.__bbcDbClient;

@@ -1,22 +1,10 @@
 import { createClient } from "@libsql/client";
-import { readFileSync, readdirSync } from "fs";
-import { join } from "path";
+import { runMigrations } from "../lib/migrate-runner";
 
 async function main() {
   const url = process.env.TURSO_DATABASE_URL ?? "file:./local.db";
   const client = createClient({ url, authToken: process.env.TURSO_AUTH_TOKEN });
-
-  const dir = join(process.cwd(), "migrations");
-  const files = readdirSync(dir)
-    .filter((f) => f.endsWith(".sql"))
-    .sort();
-
-  for (const file of files) {
-    const sql = readFileSync(join(dir, file), "utf-8");
-    console.log(`Running ${file}...`);
-    await client.executeMultiple(sql);
-  }
-
+  await runMigrations(client);
   console.log("Migrations complete.");
 }
 
