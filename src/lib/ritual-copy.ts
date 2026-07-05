@@ -52,9 +52,14 @@ export function ritualButtonCopy(status: PortfolioRitualStatus): {
     case "current":
       return {
         label: "Update pulse",
-        hint: when
-          ? `You're caught up — last pulse ${when}. Update anytime something changes.`
-          : "You're caught up this week.",
+        hint:
+          status.venturesMissingPulse > 0
+            ? when
+              ? `Last full pulse was ${when}. ${status.venturesMissingPulse} venture${status.venturesMissingPulse === 1 ? " still needs" : "s still need"} a pulse this week.`
+              : `${status.venturesMissingPulse} venture${status.venturesMissingPulse === 1 ? " still needs" : "s still need"} a pulse this week.`
+            : when
+              ? `You're caught up — last pulse ${when}. Update anytime something changes.`
+              : "You're caught up this week.",
         variant: "ghost",
         prominent: false,
       };

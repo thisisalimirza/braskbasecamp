@@ -65,7 +65,8 @@ export async function getPortfolioRitualStatus(): Promise<PortfolioRitualStatus>
   } else if (age! > WEEK_MS) {
     status = "due";
   } else {
-    status = "due";
+    // Full portfolio pulse within the last week — don't re-prompt the weekly ritual.
+    status = "current";
   }
 
   return {
