@@ -13,11 +13,13 @@ import { PlanKpiBadge } from "@/components/plan/PlanKpiBadge";
 import { getPortfolioRitualStatus, portfolioHeaderLine } from "@/lib/ritual";
 import { listGlobalFacts, listLinks } from "@/lib/reference";
 import { countPortfolioDoingItems } from "@/lib/plan";
+import { requireUser } from "@/lib/current-user";
 import { PortfolioPulseCta } from "@/components/portfolio/PortfolioPulseCta";
 
 export default async function PortfolioPage() {
-  const [netThisMonth, trend, summaries, globalFacts, globalLinks, ritual, portfolioDoingCount] =
+  const [user, netThisMonth, trend, summaries, globalFacts, globalLinks, ritual, portfolioDoingCount] =
     await Promise.all([
+      requireUser(),
       companyNetThisMonth(),
       monthlyTrend(null, 6),
       getVentureHealthSummaries(),
@@ -37,10 +39,37 @@ export default async function PortfolioPage() {
   const allHaveNextStep = summaries.length > 0 && summaries.every((s) => s.nextPlanStep);
   const missingNextStep = summaries.filter((s) => !s.nextPlanStep);
 
+  // Brand-new account: one clear path in, no empty dashboards.
+  if (summaries.length === 0) {
+    return (
+      <div className="space-y-6 pb-28">
+        <PageHeader
+          eyebrow="Base Camp"
+          title="Welcome to Base Camp"
+          description="Track what you're building, name the smallest next step, and keep moving one step at a time."
+        />
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border/80 px-6 py-20 text-center">
+          <p className="font-heading text-xl font-semibold">Start with one venture</p>
+          <p className="mt-2 max-w-md text-sm leading-relaxed text-muted-foreground">
+            A venture is anything you&apos;re working on — a product, a service, a side project.
+            Once it&apos;s in, you&apos;ll run a quick weekly pulse, log what&apos;s blocking you, and
+            always have one minimum next step queued.
+          </p>
+          <Link
+            href="/ventures"
+            className="mt-6 inline-flex h-10 items-center justify-center rounded-lg bg-primary px-5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          >
+            Add your first venture
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 pb-28">
       <PageHeader
-        eyebrow="Brask Group"
+        eyebrow={user.name}
         title="Base Camp"
         description={portfolioHeaderLine(ritual, strugglingVentures)}
       />

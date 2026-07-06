@@ -23,7 +23,6 @@ export function VentureQuickNoteDialog({
   onOpenChange,
   ventureId,
   ventureName,
-  ventureSlug,
   defaultTrajectory = "flat",
   title,
   description,

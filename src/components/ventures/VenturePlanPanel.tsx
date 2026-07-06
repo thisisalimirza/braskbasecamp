@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   DndContext,
@@ -128,17 +128,23 @@ export function VenturePlanPanel({
   const openBlockers = useMemo(() => blockers.filter((b) => b.status === "open"), [blockers]);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
-  useEffect(() => {
+  const [prevInitialItems, setPrevInitialItems] = useState(initialItems);
+  if (prevInitialItems !== initialItems) {
+    setPrevInitialItems(initialItems);
     setItems(initialItems);
+  }
+  const [prevInitialBlockers, setPrevInitialBlockers] = useState(initialBlockers);
+  if (prevInitialBlockers !== initialBlockers) {
+    setPrevInitialBlockers(initialBlockers);
     setBlockers(initialBlockers);
-  }, [initialItems, initialBlockers]);
-
-  useEffect(() => {
-    if (focusId) {
-      const fromUrl = initialItems.find((i) => i.id === focusId);
-      if (fromUrl) setFocusItem(fromUrl);
-    }
-  }, [focusId, initialItems]);
+  }
+  // ?focus=<id> deep-links straight into focus mode (portfolio Focus buttons).
+  const [prevFocusId, setPrevFocusId] = useState<string | null>(null);
+  if (focusId !== prevFocusId) {
+    setPrevFocusId(focusId);
+    const fromUrl = focusId ? initialItems.find((i) => i.id === focusId) : undefined;
+    if (fromUrl) setFocusItem(fromUrl);
+  }
 
   const refresh = () => router.refresh();
 

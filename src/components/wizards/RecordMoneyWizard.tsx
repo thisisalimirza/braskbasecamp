@@ -119,7 +119,7 @@ function RecordMoneyInner({
   const client = clientList.find((c) => c.id === state.clientId);
   let sentence = "";
   if (state.kind === "owner") {
-    sentence = `Recording a ${formatCents(cents)} owner ${state.direction} into Brask Group${selectedVenture ? ` (tagged ${selectedVenture.name})` : ""}.`;
+    sentence = `Recording a ${formatCents(cents)} owner ${state.direction}${selectedVenture ? ` (tagged ${selectedVenture.name})` : ""}.`;
   } else if (state.kind === "revenue") {
     sentence = `Recording ${formatCents(cents)} revenue for ${selectedVenture?.name ?? "company overhead"}${client ? `, from ${client.name}` : ""}, received ${formatDate(dateToMs(state.occurredOn))}.`;
   } else {

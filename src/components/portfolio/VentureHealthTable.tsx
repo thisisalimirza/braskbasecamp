@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition, type ComponentProps } from "react";
+import { useState, useTransition, type ComponentProps } from "react";
 import Link from "next/link";
 import {
   TrendingDown,
@@ -300,12 +300,14 @@ function SortableVentureRow(props: Omit<ComponentProps<typeof VentureRow>, "sort
 
 export function VentureHealthTable({ summaries }: { summaries: VentureHealth[] }) {
   const [rows, setRows] = useState(summaries);
+  const [prevSummaries, setPrevSummaries] = useState(summaries);
   const [reorderMode, setReorderMode] = useState(false);
   const [pending, startTransition] = useTransition();
 
-  useEffect(() => {
+  if (prevSummaries !== summaries) {
+    setPrevSummaries(summaries);
     setRows(summaries);
-  }, [summaries]);
+  }
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),

@@ -17,6 +17,7 @@ import { listClients } from "@/lib/clients";
 import { listCategories } from "@/lib/categories";
 import { listBlockers, getPrimaryBlocker } from "@/lib/blockers";
 import { listPlanItems, getFocusPlanItem, countPortfolioDoingItems } from "@/lib/plan";
+import { nowMs } from "@/lib/db";
 import { STUDIO_SLUG } from "@/lib/venture-config";
 import { cn } from "@/lib/utils";
 
@@ -101,15 +102,8 @@ export default async function VenturePage({
         }
       />
 
+      {/* Execution first: status + next step lead, metrics and money follow. */}
       <div className="grid gap-4 lg:grid-cols-3">
-        <VentureMoneySnapshot
-          revenueCents={breakdown.revenueCents}
-          costCents={breakdown.costCents}
-          netCents={breakdown.netCents}
-          trend={trendValues}
-          trendLabels={trendLabels}
-        />
-        <KpiGlance kpis={kpis} ventureId={venture.id} ventureSlug={slug} />
         <VentureStatusPanel
           latestCheckin={latestCheckin}
           ventureId={venture.id}
@@ -126,6 +120,15 @@ export default async function VenturePage({
                 }
               : null
           }
+          now={nowMs()}
+        />
+        <KpiGlance kpis={kpis} ventureId={venture.id} ventureSlug={slug} />
+        <VentureMoneySnapshot
+          revenueCents={breakdown.revenueCents}
+          costCents={breakdown.costCents}
+          netCents={breakdown.netCents}
+          trend={trendValues}
+          trendLabels={trendLabels}
         />
       </div>
 
