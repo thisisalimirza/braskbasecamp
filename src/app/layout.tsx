@@ -22,7 +22,7 @@ const ibmMono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   title: "Brask Base Camp",
-  description: "One home for every Brask Group venture",
+  description: "One home for every venture you're building — plan, pulse, and execute one step at a time",
 };
 
 export const viewport: Viewport = {

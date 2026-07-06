@@ -21,7 +21,7 @@ import type { VentureType, VentureStatus } from "@/lib/ventures";
 type KpiDraft = { name: string; unit: string };
 
 function NewVentureContent({ onDone }: { onDone: () => void }) {
-  const { step, next } = useWizard();
+  const { next } = useWizard();
   const [name, setName] = useState("");
   const [ventureType, setVentureType] = useState<VentureType>("product");
   const [oneLiner, setOneLiner] = useState("");

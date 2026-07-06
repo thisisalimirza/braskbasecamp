@@ -38,7 +38,6 @@ export function AppShell({
   checkinDrafts,
   ritual,
   recentlyDone,
-  portfolioDoingCount,
 }: {
   children: React.ReactNode;
   user: { name: string; email: string };

@@ -109,7 +109,11 @@ export function VentureDetailTabs({
       </TabsContent>
 
       <TabsContent value="ledger" className="min-h-[420px]">
-        <SectionCard title="Money history" description="Everything you've logged for this venture">
+        <SectionCard
+          title="Money history"
+          description="Everything you've logged for this venture"
+          tone="quiet"
+        >
           <PnlEntriesTable
             entries={entries}
             ventureSlug={ventureSlug}
@@ -121,15 +125,17 @@ export function VentureDetailTabs({
       </TabsContent>
 
       <TabsContent value="ritual" className="min-h-[420px]">
-        <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-sm">
-          <h2 className="font-heading text-base font-semibold">Past pulses</h2>
-          <p className="mt-1 text-sm text-muted-foreground">How this venture has been doing over time.</p>
+        <SectionCard
+          title="Past pulses"
+          description="How this venture has been doing over time."
+          tone="quiet"
+        >
           {checkins.length === 0 ? (
-            <p className="mt-6 text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               Nothing here yet. Run a pulse from the portfolio home when you&apos;re ready.
             </p>
           ) : (
-            <ul className="mt-6 space-y-3">
+            <ul className="space-y-3">
               {checkins.map((c) => (
                 <li key={c.id} className="rounded-xl bg-muted/35 px-4 py-3">
                   <div className="flex flex-wrap items-center gap-3">
@@ -154,23 +160,17 @@ export function VentureDetailTabs({
               ))}
             </ul>
           )}
-        </div>
+        </SectionCard>
       </TabsContent>
 
       {isStudio && (
         <TabsContent value="pipeline" className="min-h-[420px] space-y-6">
-          <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-sm">
-            <h2 className="font-heading text-base font-semibold">Pipeline</h2>
-            <div className="mt-4">
-              <PipelineBoard clients={clients} studioVentureId={ventureId} />
-            </div>
-          </div>
-          <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-sm">
-            <h2 className="font-heading text-base font-semibold">Clients & revenue</h2>
-            <div className="mt-4">
-              <ClientList clients={clients} />
-            </div>
-          </div>
+          <SectionCard title="Pipeline" description="Move clients from lead to closed.">
+            <PipelineBoard clients={clients} studioVentureId={ventureId} />
+          </SectionCard>
+          <SectionCard title="Clients & revenue" tone="quiet">
+            <ClientList clients={clients} />
+          </SectionCard>
         </TabsContent>
       )}
 

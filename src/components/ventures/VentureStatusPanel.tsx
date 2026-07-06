@@ -19,6 +19,7 @@ export function VentureStatusPanel({
   primaryBlocker,
   openBlockerCount,
   focusPlanItem,
+  now,
 }: {
   latestCheckin: Checkin | null;
   ventureId: string;
@@ -26,13 +27,15 @@ export function VentureStatusPanel({
   primaryBlocker: { id: string; body: string } | null;
   openBlockerCount: number;
   focusPlanItem: { id: string; title: string; status: PlanItemStatus; kpiName: string | null } | null;
+  /** Server-provided render time, so this client component stays pure. */
+  now: number;
 }) {
   const cutoff = daysAgoMs(14);
   const weekCutoff = daysAgoMs(7);
   const stale = !latestCheckin || latestCheckin.checkedAt < cutoff;
   const needsPulse = !latestCheckin || latestCheckin.checkedAt < weekCutoff;
   const daysSince = latestCheckin
-    ? Math.floor((Date.now() - latestCheckin.checkedAt) / (24 * 60 * 60 * 1000))
+    ? Math.floor((now - latestCheckin.checkedAt) / (24 * 60 * 60 * 1000))
     : null;
 
   const trajectory = latestCheckin?.trajectory ?? null;

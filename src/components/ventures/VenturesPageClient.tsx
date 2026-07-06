@@ -29,7 +29,20 @@ export function VenturesPageClient({
         actions={<Button onClick={() => setNewOpen(true)}>New venture</Button>}
       />
 
-      <div className="divide-y divide-border/70 rounded-2xl border border-border/80 bg-card shadow-sm">
+      {ventures.length === 0 && (
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border/80 px-6 py-16 text-center">
+          <p className="font-heading text-lg font-semibold">Set up your first venture</p>
+          <p className="mt-2 max-w-sm text-sm text-muted-foreground">
+            A venture is anything you&apos;re building — a product, a service, a channel. Add one,
+            then name the smallest next step that moves it forward.
+          </p>
+          <Button className="mt-5" onClick={() => setNewOpen(true)}>
+            New venture
+          </Button>
+        </div>
+      )}
+
+      <div className={cn("divide-y divide-border/70 rounded-2xl border border-border/80 bg-card shadow-sm", ventures.length === 0 && "hidden")}>
         {ventures.map((v) => {
           const net = netsByVentureId[v.id] ?? 0;
           return (

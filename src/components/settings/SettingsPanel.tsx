@@ -68,7 +68,7 @@ export function SettingsPanel({ initial }: { initial: AppSettings }) {
         </div>
       </SectionCard>
 
-      <SectionCard title="Mobile" description="Optimized for phones.">
+      <SectionCard title="Mobile" description="Optimized for phones." tone="quiet">
         <p className="text-sm text-muted-foreground">
           Inputs use 16px text on small screens so iOS Safari won&apos;t zoom when you tap to type.
           Focus mode opens full-screen for distraction-free work.
