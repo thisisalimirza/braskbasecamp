@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Check, Focus } from "lucide-react";
@@ -7,6 +8,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { SectionCard } from "@/components/ui/page-header";
 import { PlanTaskLinks } from "@/components/plan/PlanKpiBadge";
+import { KpiDoneDialog } from "@/components/plan/KpiDoneDialog";
 import { movePlanItemAction } from "@/app/actions";
 import { planStatusLabel } from "@/lib/next-actions";
 import type { VentureHealth } from "@/lib/venture-health";
@@ -23,13 +25,29 @@ export function ThisWeekWork({
 }) {
   const router = useRouter();
   const { hardWipLimits } = useAppSettings();
+  const [kpiDoneRow, setKpiDoneRow] = useState<VentureHealth | null>(null);
+  // In-progress work first — what you already committed to comes before what's queued.
   const focusRows = summaries
     .filter((s) => s.focusPlanItem && s.focusPlanItem.status !== "done")
+    .sort((a, b) => {
+      const rank = (s: VentureHealth) => (s.focusPlanItem!.status === "doing" ? 0 : 1);
+      return rank(a) - rank(b);
+    })
     .slice(0, 6);
+
+  const openFocus = (row: VentureHealth) => {
+    const item = row.focusPlanItem;
+    if (!item) return;
+    router.push(`/ventures/${row.venture.slug}?tab=plan&focus=${item.id}`);
+  };
 
   const handleDone = async (row: VentureHealth) => {
     const item = row.focusPlanItem;
     if (!item) return;
+    if (item.kpiDefinitionId && item.kpiName) {
+      setKpiDoneRow(row);
+      return;
+    }
     const res = await movePlanItemAction(item.id, "done", 0, row.venture.slug);
     if (res.error) toast.error(res.error);
     else {
@@ -51,7 +69,7 @@ export function ThisWeekWork({
           notes: null,
           status: item.status,
           blockerId: null,
-          kpiDefinitionId: null,
+          kpiDefinitionId: item.kpiDefinitionId,
           kpiName: item.kpiName,
           sortOrder: 0,
           createdAt: item.createdAt,
@@ -109,6 +127,7 @@ export function ThisWeekWork({
       <ul className="space-y-2">
         {focusRows.map((row) => {
           const item = row.focusPlanItem!;
+          const inProgress = item.status === "doing";
           const aging = stepAgingLabel({
             id: item.id,
             ventureId: row.venture.id,
@@ -116,7 +135,7 @@ export function ThisWeekWork({
             notes: null,
             status: item.status,
             blockerId: null,
-            kpiDefinitionId: null,
+            kpiDefinitionId: item.kpiDefinitionId,
             kpiName: item.kpiName,
             sortOrder: 0,
             createdAt: item.createdAt,
@@ -126,7 +145,12 @@ export function ThisWeekWork({
           return (
             <li
               key={row.venture.id}
-              className="flex flex-col gap-3 rounded-xl bg-muted/35 p-3.5 sm:flex-row sm:items-center sm:justify-between"
+              className={cn(
+                "flex flex-col gap-3 rounded-xl p-3.5 sm:flex-row sm:items-center sm:justify-between",
+                inProgress
+                  ? "bg-primary/[0.05] ring-1 ring-inset ring-primary/15"
+                  : "bg-muted/35"
+              )}
             >
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
@@ -136,14 +160,26 @@ export function ThisWeekWork({
                   >
                     {row.venture.name}
                   </Link>
-                  <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                  <span
+                    className={cn(
+                      "text-[10px] font-medium uppercase tracking-wide",
+                      inProgress ? "text-primary" : "text-muted-foreground"
+                    )}
+                  >
                     {planStatusLabel(item.status)}
                   </span>
                   {aging && (
                     <span className="text-[10px] text-amber-800 dark:text-amber-300">{aging}</span>
                   )}
                 </div>
-                <p className="mt-1 text-sm font-medium leading-snug">{item.title}</p>
+                <button
+                  type="button"
+                  className="mt-1 block w-full text-left text-sm font-medium leading-snug hover:text-primary"
+                  title="Open focus mode"
+                  onClick={() => openFocus(row)}
+                >
+                  {item.title}
+                </button>
                 <PlanTaskLinks
                   className="mt-1.5"
                   kpiName={item.kpiName}
@@ -156,7 +192,7 @@ export function ThisWeekWork({
                   variant="outline"
                   size="sm"
                   className="h-8 gap-1 text-xs"
-                  onClick={() => router.push(`/ventures/${row.venture.slug}?tab=plan&focus=${item.id}`)}
+                  onClick={() => openFocus(row)}
                 >
                   <Focus className="size-3" />
                   Focus
@@ -193,6 +229,23 @@ export function ThisWeekWork({
             <ArrowRight className="size-3" />
           </Link>
         </p>
+      )}
+      {kpiDoneRow?.focusPlanItem?.kpiDefinitionId && (
+        <KpiDoneDialog
+          open={kpiDoneRow != null}
+          onOpenChange={(open) => !open && setKpiDoneRow(null)}
+          kpiDefinitionId={kpiDoneRow.focusPlanItem.kpiDefinitionId}
+          kpiName={kpiDoneRow.focusPlanItem.kpiName ?? "KPI"}
+          kpiUnit={
+            kpiDoneRow.kpiSnapshots.find(
+              (k) => k.name === kpiDoneRow.focusPlanItem?.kpiName
+            )?.unit ?? null
+          }
+          ventureSlug={kpiDoneRow.venture.slug}
+          itemId={kpiDoneRow.focusPlanItem.id}
+          sortOrder={0}
+          onComplete={() => setKpiDoneRow(null)}
+        />
       )}
     </SectionCard>
   );

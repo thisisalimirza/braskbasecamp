@@ -59,6 +59,7 @@ export default async function PortfolioPage() {
             <SectionCard
               title="Venture priorities"
               description="Ranked list — blocker-linked next steps surface first."
+              tone="quiet"
             >
               <VentureHealthTable summaries={summaries} />
             </SectionCard>
@@ -66,16 +67,8 @@ export default async function PortfolioPage() {
         </div>
 
         <div className="contents lg:block lg:space-y-6">
+          {/* Attention first: the rail reads act → monitor → reference. */}
           <div className="order-2 lg:order-none">
-            <MoneyBlock
-              label="Company net · this month"
-              cents={netThisMonth}
-              trend={trendValues}
-              trendLabels={trendLabels}
-            />
-          </div>
-
-          <div className="order-3 lg:order-none">
           {topAttention && attentionSnippet ? (
             <SectionCard
               title="Top priority venture"
@@ -84,6 +77,7 @@ export default async function PortfolioPage() {
                   ? "From your most recent pulse"
                   : "Current blocker — name the step that unblocks it"
               }
+              tone="attention"
             >
               <Link href={`/ventures/${topAttention.venture.slug}?tab=plan`} className="group block">
                 <p className="font-heading text-lg font-semibold group-hover:text-primary">
@@ -120,6 +114,7 @@ export default async function PortfolioPage() {
             <SectionCard
               title="Plans are set"
               description="Every venture has a minimum next step queued."
+              tone="quiet"
             >
               <p className="text-sm text-muted-foreground">
                 Work from <Link href="/tasks" className="font-medium text-primary hover:underline">Tasks</Link> or
@@ -155,6 +150,15 @@ export default async function PortfolioPage() {
               />
             </SectionCard>
           )}
+          </div>
+
+          <div className="order-3 lg:order-none">
+            <MoneyBlock
+              label="Company net · this month"
+              cents={netThisMonth}
+              trend={trendValues}
+              trendLabels={trendLabels}
+            />
           </div>
 
           <div className="order-5 lg:order-none">
