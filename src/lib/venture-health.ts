@@ -40,6 +40,7 @@ export type VentureHealth = {
     title: string;
     status: PlanItemStatus;
     kpiName: string | null;
+    kpiDefinitionId: string | null;
     createdAt: number;
     statusChangedAt: number;
   } | null;
@@ -111,6 +112,7 @@ export async function getVentureHealthSummaries(): Promise<VentureHealth[]> {
             title: focus.title,
             status: focus.status,
             kpiName: focus.kpiName,
+            kpiDefinitionId: focus.kpiDefinitionId,
             createdAt: focus.createdAt,
             statusChangedAt: focus.statusChangedAt,
           }

@@ -16,6 +16,7 @@ import {
 import { toast } from "sonner";
 import {
   Check,
+  Focus,
   LayoutGrid,
   List,
   Pencil,
@@ -114,7 +115,7 @@ export function VenturePlanPanel({
   const [editingBlockerId, setEditingBlockerId] = useState<string | null>(null);
   const [editingBlockerBody, setEditingBlockerBody] = useState("");
   const [kpiDoneItem, setKpiDoneItem] = useState<PlanItem | null>(null);
-  const [focusOpen, setFocusOpen] = useState(false);
+  const [focusItem, setFocusItem] = useState<PlanItem | null>(null);
   const [newBlocker, setNewBlocker] = useState("");
   const [form, setForm] = useState({
     title: "",
@@ -133,12 +134,11 @@ export function VenturePlanPanel({
   }, [initialItems, initialBlockers]);
 
   useEffect(() => {
-    if (focusId && initialItems.some((i) => i.id === focusId)) {
-      setFocusOpen(true);
+    if (focusId) {
+      const fromUrl = initialItems.find((i) => i.id === focusId);
+      if (fromUrl) setFocusItem(fromUrl);
     }
   }, [focusId, initialItems]);
-
-  const focusItem = focusId ? items.find((i) => i.id === focusId) ?? null : null;
 
   const refresh = () => router.refresh();
 
@@ -524,6 +524,7 @@ export function VenturePlanPanel({
                   onMove={handleMove}
                   onDone={handleMarkDone}
                   onEdit={openEdit}
+                  onFocus={setFocusItem}
                   onAdd={() => {
                     setForm({ title: "", notes: "", status: col.id, blockerId: "", kpiDefinitionId: "" });
                     setAddOpen(true);
@@ -546,6 +547,7 @@ export function VenturePlanPanel({
             onDelete={handleDelete}
             onDone={handleMarkDone}
             onEdit={openEdit}
+            onFocus={setFocusItem}
           />
         )}
       </section>
@@ -728,8 +730,8 @@ export function VenturePlanPanel({
       </Dialog>
 
       <PlanItemFocusDialog
-        open={focusOpen}
-        onOpenChange={setFocusOpen}
+        open={focusItem != null}
+        onOpenChange={(open) => !open && setFocusItem(null)}
         item={focusItem}
         ventureName={ventureName}
         ventureSlug={ventureSlug}
@@ -765,6 +767,7 @@ function PlanColumn({
   onMove,
   onDone,
   onEdit,
+  onFocus,
   onAdd,
 }: {
   column: (typeof PLAN_COLUMNS)[number];
@@ -774,6 +777,7 @@ function PlanColumn({
   onMove: (id: string, status: PlanItemStatus) => void;
   onDone: (item: PlanItem) => void;
   onEdit: (item: PlanItem) => void;
+  onFocus: (item: PlanItem) => void;
   onAdd?: () => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
@@ -800,6 +804,7 @@ function PlanColumn({
               onMove={onMove}
               onDone={onDone}
               onEdit={onEdit}
+              onFocus={onFocus}
             />
           ))
         )}
@@ -815,6 +820,7 @@ function DraggablePlanCard({
   onMove,
   onDone,
   onEdit,
+  onFocus,
 }: {
   item: PlanItem;
   blockers: VentureBlocker[];
@@ -822,6 +828,7 @@ function DraggablePlanCard({
   onMove: (id: string, status: PlanItemStatus) => void;
   onDone: (item: PlanItem) => void;
   onEdit: (item: PlanItem) => void;
+  onFocus: (item: PlanItem) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: item.id });
 
@@ -839,6 +846,7 @@ function DraggablePlanCard({
         onMove={onMove}
         onDone={onDone}
         onEdit={onEdit}
+        onFocus={onFocus}
       />
     </div>
   );
@@ -853,6 +861,7 @@ function PlanCard({
   onMove,
   onDone,
   onEdit,
+  onFocus,
 }: {
   item: PlanItem;
   blockers: VentureBlocker[];
@@ -862,6 +871,7 @@ function PlanCard({
   onMove?: (id: string, status: PlanItemStatus) => void;
   onDone?: (item: PlanItem) => void;
   onEdit?: (item: PlanItem) => void;
+  onFocus?: (item: PlanItem) => void;
 }) {
   const linked = item.blockerId ? blockers.find((b) => b.id === item.blockerId) : null;
   const aging = stepAgingLabel(item);
@@ -870,19 +880,37 @@ function PlanCard({
     <div
       className={cn(
         "group rounded-xl border border-border/70 bg-card p-3.5 shadow-sm transition-all duration-150 hover:border-primary/25 hover:shadow-md",
-        dragging && "shadow-lg ring-1 ring-primary/20"
+        dragging && "shadow-lg ring-1 ring-primary/20",
+        dragHandleProps && "cursor-grab active:cursor-grabbing"
       )}
+      {...dragHandleProps}
     >
-      <div className={cn(dragHandleProps && "cursor-grab active:cursor-grabbing")} {...dragHandleProps}>
-        <div className="flex items-start justify-between gap-2">
-          <p className="text-sm font-medium leading-snug">{item.title}</p>
-          {aging && <span className="shrink-0 text-[10px] text-amber-800/90 dark:text-amber-300/90">{aging}</span>}
-        </div>
-        {item.notes && (
-          <p className="mt-1 text-xs leading-relaxed text-muted-foreground line-clamp-2">
-            {item.notes}
-          </p>
+      <div className="flex items-start justify-between gap-2">
+        {onEdit ? (
+          <button
+            type="button"
+            className="min-w-0 flex-1 text-left"
+            onClick={() => onEdit(item)}
+            onPointerDown={(e) => dragHandleProps && e.stopPropagation()}
+          >
+            <p className="text-sm font-medium leading-snug group-hover:text-primary">{item.title}</p>
+            {item.notes && (
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground line-clamp-2">
+                {item.notes}
+              </p>
+            )}
+          </button>
+        ) : (
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium leading-snug">{item.title}</p>
+            {item.notes && (
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground line-clamp-2">
+                {item.notes}
+              </p>
+            )}
+          </div>
         )}
+        {aging && <span className="shrink-0 text-[10px] text-amber-800/90 dark:text-amber-300/90">{aging}</span>}
       </div>
       <PlanTaskLinks
         className="mt-2"
@@ -894,15 +922,15 @@ function PlanCard({
           className="mt-2.5 flex items-center gap-0.5 border-t border-border/40 pt-2 opacity-0 transition-opacity duration-150 focus-within:opacity-100 group-hover:opacity-100 max-sm:opacity-100"
           onPointerDown={(e) => e.stopPropagation()}
         >
-          {onEdit && (
+          {onFocus && item.status !== "done" && (
             <button
               type="button"
-              title="Edit step"
-              aria-label="Edit step"
+              title="Focus on this step"
+              aria-label="Focus on this step"
               className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              onClick={() => onEdit(item)}
+              onClick={() => onFocus(item)}
             >
-              <Pencil className="size-3.5" />
+              <Focus className="size-3.5" />
             </button>
           )}
           <button
@@ -958,6 +986,7 @@ function PlanListView({
   onDelete,
   onDone,
   onEdit,
+  onFocus,
 }: {
   items: PlanItem[];
   doneItems: PlanItem[];
@@ -966,6 +995,7 @@ function PlanListView({
   onDelete: (id: string) => void;
   onDone: (item: PlanItem) => void;
   onEdit: (item: PlanItem) => void;
+  onFocus: (item: PlanItem) => void;
 }) {
   if (items.length === 0 && doneItems.length === 0) {
     return (
@@ -982,7 +1012,7 @@ function PlanListView({
           {items.map((item) => (
             <li key={item.id} className="rounded-xl bg-muted/35 p-3.5">
               <div className="flex flex-wrap items-start justify-between gap-2">
-                <div className="min-w-0 flex-1">
+                <button type="button" className="min-w-0 flex-1 text-left" onClick={() => onEdit(item)}>
                   <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                     {planStatusLabel(item.status)}
                   </span>
@@ -999,10 +1029,17 @@ function PlanListView({
                         : null
                     }
                   />
-                </div>
+                </button>
                 <div className="flex shrink-0 flex-wrap gap-1">
-                  <Button type="button" variant="ghost" size="sm" className="h-8" onClick={() => onEdit(item)}>
-                    <Pencil className="size-3.5" />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-1 text-xs"
+                    onClick={() => onFocus(item)}
+                  >
+                    <Focus className="size-3" />
+                    Focus
                   </Button>
                   {item.status !== "doing" && (
                     <Button

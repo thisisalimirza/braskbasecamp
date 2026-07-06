@@ -16,6 +16,7 @@ import {
 } from "@dnd-kit/core";
 import {
   Filter,
+  Focus,
   LayoutGrid,
   List,
   Plus,
@@ -56,6 +57,8 @@ import type { Venture } from "@/lib/ventures";
 import { PlanTaskLinks } from "@/components/plan/PlanKpiBadge";
 import { PlanColumnHeader, PlanColumnEmptyHint } from "@/components/plan/PlanColumnHeader";
 import { PlanKpiSelect } from "@/components/plan/PlanKpiSelect";
+import { PlanItemFocusDialog } from "@/components/plan/PlanItemFocusDialog";
+import { KpiDoneDialog } from "@/components/plan/KpiDoneDialog";
 import { planStatusLabel } from "@/lib/next-actions";
 import { stepAgingLabel, evaluateWipLimits } from "@/lib/plan-wip";
 import { useAppSettings } from "@/components/AppSettingsProvider";
@@ -95,6 +98,8 @@ export function GlobalTasksBoard({
   const [activeId, setActiveId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [editItem, setEditItem] = useState<GlobalPlanItem | null>(null);
+  const [focusItem, setFocusItem] = useState<GlobalPlanItem | null>(null);
+  const [kpiDoneItem, setKpiDoneItem] = useState<GlobalPlanItem | null>(null);
   const [addForm, setAddForm] = useState({
     ventureId: ventures[0]?.id ?? "",
     title: "",
@@ -171,6 +176,15 @@ export function GlobalTasksBoard({
 
   const byStatus = (status: PlanItemStatus) =>
     filtered.filter((i) => i.status === status).sort((a, b) => a.sortOrder - b.sortOrder);
+
+  /** Done with the same KPI prompt the venture plan uses. */
+  const handleMarkDone = (item: GlobalPlanItem) => {
+    if (item.kpiDefinitionId && item.kpiName) {
+      setKpiDoneItem(item);
+      return;
+    }
+    void handleMoveWithWip(item, "done");
+  };
 
   const boardColumns = showDone ? PLAN_COLUMNS : PLAN_COLUMNS.filter((c) => c.id !== "done");
 
@@ -472,6 +486,16 @@ export function GlobalTasksBoard({
                       <PlanTaskLinks className="mt-1.5" kpiName={item.kpiName} blockerBody={item.blockerBody} />
                     </button>
                     <div className="flex gap-1">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 gap-1 text-xs"
+                        onClick={() => setFocusItem(item)}
+                      >
+                        <Focus className="size-3" />
+                        Focus
+                      </Button>
                       {item.status !== "doing" && (
                         <Button
                           type="button"
@@ -487,7 +511,7 @@ export function GlobalTasksBoard({
                         type="button"
                         size="sm"
                         className="h-8 text-xs"
-                        onClick={() => handleMoveWithWip(item, "done")}
+                        onClick={() => handleMarkDone(item)}
                       >
                         Done
                       </Button>
@@ -512,8 +536,10 @@ export function GlobalTasksBoard({
                 column={col}
                 items={byStatus(col.id)}
                 onEdit={openEdit}
-                onMove={handleMove}
+                onMove={handleMoveWithWip}
                 onDelete={handleDelete}
+                onDone={handleMarkDone}
+                onFocus={setFocusItem}
                 onAdd={() => {
                   setAddForm((f) => ({ ...f, status: col.id }));
                   setAddOpen(true);
@@ -526,7 +552,14 @@ export function GlobalTasksBoard({
           </DragOverlay>
         </DndContext>
       ) : (
-        <TaskListView items={filtered} onEdit={openEdit} onMove={handleMoveWithWip} onDelete={handleDelete} />
+        <TaskListView
+          items={filtered}
+          onEdit={openEdit}
+          onMove={handleMoveWithWip}
+          onDelete={handleDelete}
+          onDone={handleMarkDone}
+          onFocus={setFocusItem}
+        />
       )}
 
       {/* Add dialog */}
@@ -774,6 +807,34 @@ export function GlobalTasksBoard({
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Focus mode — same Pomodoro dialog the venture plan and portfolio use */}
+      <PlanItemFocusDialog
+        open={focusItem != null}
+        onOpenChange={(open) => !open && setFocusItem(null)}
+        item={focusItem}
+        ventureName={focusItem?.ventureName ?? ""}
+        ventureSlug={focusItem?.ventureSlug ?? ""}
+        blockerBody={focusItem?.blockerBody ?? null}
+      />
+
+      {kpiDoneItem && kpiDoneItem.kpiDefinitionId && (
+        <KpiDoneDialog
+          open={kpiDoneItem != null}
+          onOpenChange={(open) => !open && setKpiDoneItem(null)}
+          kpiDefinitionId={kpiDoneItem.kpiDefinitionId}
+          kpiName={kpiDoneItem.kpiName ?? "KPI"}
+          kpiUnit={
+            (kpisByVenture[kpiDoneItem.ventureId] ?? []).find(
+              (k) => k.id === kpiDoneItem.kpiDefinitionId
+            )?.unit ?? null
+          }
+          ventureSlug={kpiDoneItem.ventureSlug}
+          itemId={kpiDoneItem.id}
+          sortOrder={kpiDoneItem.sortOrder}
+          onComplete={() => setKpiDoneItem(null)}
+        />
+      )}
     </div>
   );
 }
@@ -784,6 +845,8 @@ function TaskColumn({
   onEdit,
   onMove,
   onDelete,
+  onDone,
+  onFocus,
   onAdd,
 }: {
   column: (typeof PLAN_COLUMNS)[number];
@@ -791,6 +854,8 @@ function TaskColumn({
   onEdit: (item: GlobalPlanItem) => void;
   onMove: (item: GlobalPlanItem, status: PlanItemStatus) => void;
   onDelete: (item: GlobalPlanItem) => void;
+  onDone: (item: GlobalPlanItem) => void;
+  onFocus: (item: GlobalPlanItem) => void;
   onAdd?: () => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: column.id });
@@ -815,6 +880,8 @@ function TaskColumn({
               onEdit={onEdit}
               onMove={onMove}
               onDelete={onDelete}
+              onDone={onDone}
+              onFocus={onFocus}
             />
           ))
         )}
@@ -826,11 +893,17 @@ function TaskColumn({
 function DraggableTaskCard({
   item,
   onEdit,
+  onMove,
+  onDelete,
+  onDone,
+  onFocus,
 }: {
   item: GlobalPlanItem;
   onEdit: (item: GlobalPlanItem) => void;
   onMove: (item: GlobalPlanItem, status: PlanItemStatus) => void;
   onDelete: (item: GlobalPlanItem) => void;
+  onDone: (item: GlobalPlanItem) => void;
+  onFocus: (item: GlobalPlanItem) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: item.id });
   const style = transform
@@ -843,6 +916,10 @@ function DraggableTaskCard({
         item={item}
         dragHandleProps={{ ...attributes, ...listeners }}
         onEdit={() => onEdit(item)}
+        onMove={onMove}
+        onDelete={onDelete}
+        onDone={onDone}
+        onFocus={onFocus}
       />
     </div>
   );
@@ -853,11 +930,19 @@ function TaskCard({
   dragging,
   dragHandleProps,
   onEdit,
+  onMove,
+  onDelete,
+  onDone,
+  onFocus,
 }: {
   item: GlobalPlanItem;
   dragging?: boolean;
   dragHandleProps?: Record<string, unknown>;
   onEdit?: () => void;
+  onMove?: (item: GlobalPlanItem, status: PlanItemStatus) => void;
+  onDelete?: (item: GlobalPlanItem) => void;
+  onDone?: (item: GlobalPlanItem) => void;
+  onFocus?: (item: GlobalPlanItem) => void;
 }) {
   const aging = stepAgingLabel(item);
 
@@ -902,6 +987,63 @@ function TaskCard({
         kpiName={item.kpiName}
         blockerBody={item.blockerBody}
       />
+      {onMove && onDelete && (
+        <div
+          className="mt-2.5 flex items-center gap-0.5 border-t border-border/40 pt-2 opacity-0 transition-opacity duration-150 focus-within:opacity-100 group-hover:opacity-100 max-sm:opacity-100"
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          {onFocus && item.status !== "done" && (
+            <button
+              type="button"
+              title="Focus on this task"
+              aria-label="Focus on this task"
+              className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              onClick={() => onFocus(item)}
+            >
+              <Focus className="size-3.5" />
+            </button>
+          )}
+          <button
+            type="button"
+            title="Delete task"
+            aria-label="Delete task"
+            className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            onClick={() => onDelete(item)}
+          >
+            <Trash2 className="size-3.5" />
+          </button>
+          <span className="flex-1" aria-hidden />
+          {item.status !== "done" && (
+            <>
+              {item.status !== "doing" && (
+                <button
+                  type="button"
+                  className="rounded-md px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  onClick={() => onMove(item, "doing")}
+                >
+                  Start
+                </button>
+              )}
+              {item.status !== "next" && item.status !== "doing" && (
+                <button
+                  type="button"
+                  className="rounded-md px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  onClick={() => onMove(item, "next")}
+                >
+                  Queue next
+                </button>
+              )}
+              <button
+                type="button"
+                className="rounded-md px-2 py-1 text-[11px] font-medium text-emerald-700 transition-colors hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                onClick={() => onDone?.(item)}
+              >
+                Done
+              </button>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -911,11 +1053,15 @@ function TaskListView({
   onEdit,
   onMove,
   onDelete,
+  onDone,
+  onFocus,
 }: {
   items: GlobalPlanItem[];
   onEdit: (item: GlobalPlanItem) => void;
   onMove: (item: GlobalPlanItem, status: PlanItemStatus) => void;
   onDelete: (item: GlobalPlanItem) => void;
+  onDone: (item: GlobalPlanItem) => void;
+  onFocus: (item: GlobalPlanItem) => void;
 }) {
   const grouped = PLAN_COLUMNS.map((col) => ({
     ...col,
@@ -955,6 +1101,18 @@ function TaskListView({
                   />
                 </button>
                 <div className="flex shrink-0 flex-wrap gap-1">
+                  {item.status !== "done" && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 gap-1 text-xs"
+                      onClick={() => onFocus(item)}
+                    >
+                      <Focus className="size-3" />
+                      Focus
+                    </Button>
+                  )}
                   {item.status !== "doing" && item.status !== "done" && (
                     <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={() => onMove(item, "doing")}>
                       Start
@@ -966,7 +1124,7 @@ function TaskListView({
                       variant="outline"
                       size="sm"
                       className="h-8 text-xs text-emerald-700"
-                      onClick={() => onMove(item, "done")}
+                      onClick={() => onDone(item)}
                     >
                       Done
                     </Button>

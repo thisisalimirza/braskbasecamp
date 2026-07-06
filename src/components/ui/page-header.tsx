@@ -34,21 +34,45 @@ export function PageHeader({
   );
 }
 
+/**
+ * tone establishes the page's visual hierarchy:
+ * - "attention": needs the user to act — warm tint, strongest weight
+ * - "default": today's working surface
+ * - "quiet": reference/monitoring — recedes until needed
+ */
 export function SectionCard({
   title,
   description,
   children,
   className,
+  tone = "default",
 }: {
   title: string;
   description?: string;
   children: React.ReactNode;
   className?: string;
+  tone?: "attention" | "default" | "quiet";
 }) {
   return (
-    <section className={cn("rounded-2xl border border-border/80 bg-card p-5 shadow-sm sm:p-6", className)}>
-      <div className="mb-5">
-        <h2 className="font-heading text-base font-semibold tracking-tight">{title}</h2>
+    <section
+      className={cn(
+        "rounded-2xl border p-5 sm:p-6",
+        tone === "attention" &&
+          "border-red-200/80 bg-red-50/40 shadow-sm dark:border-red-900/40 dark:bg-red-950/15",
+        tone === "default" && "border-border/80 bg-card shadow-sm",
+        tone === "quiet" && "border-border/60 bg-card/50",
+        className
+      )}
+    >
+      <div className={cn("mb-5", tone === "quiet" && "mb-4")}>
+        <h2
+          className={cn(
+            "font-heading font-semibold tracking-tight",
+            tone === "quiet" ? "text-sm text-muted-foreground" : "text-base"
+          )}
+        >
+          {title}
+        </h2>
         {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
       </div>
       {children}
