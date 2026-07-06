@@ -47,10 +47,35 @@ export default async function PortfolioPage() {
 
       <PortfolioPulseBanner ritual={ritual} />
 
-      <ThisWeekWork summaries={summaries} portfolioDoingCount={portfolioDoingCount} />
+      {/* On mobile the wrappers dissolve (`contents`) so cards stack in reading
+          order; at lg they become the main column and right rail. */}
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
+        <div className="contents lg:block lg:min-w-0 lg:space-y-6">
+          <div className="order-1 min-w-0 lg:order-none">
+            <ThisWeekWork summaries={summaries} portfolioDoingCount={portfolioDoingCount} />
+          </div>
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_1.1fr]">
-        <div className="flex flex-col gap-4">
+          <div className="order-4 min-w-0 lg:order-none">
+            <SectionCard
+              title="Venture priorities"
+              description="Ranked list — blocker-linked next steps surface first."
+            >
+              <VentureHealthTable summaries={summaries} />
+            </SectionCard>
+          </div>
+        </div>
+
+        <div className="contents lg:block lg:space-y-6">
+          <div className="order-2 lg:order-none">
+            <MoneyBlock
+              label="Company net · this month"
+              cents={netThisMonth}
+              trend={trendValues}
+              trendLabels={trendLabels}
+            />
+          </div>
+
+          <div className="order-3 lg:order-none">
           {topAttention && attentionSnippet ? (
             <SectionCard
               title="Top priority venture"
@@ -70,7 +95,7 @@ export default async function PortfolioPage() {
                     {attentionSnippet.badge}
                   </p>
                 )}
-                <p className="mt-1 text-sm leading-relaxed text-red-800 dark:text-red-300">
+                <p className="mt-1 text-sm leading-relaxed text-red-950/80 dark:text-red-200/85">
                   {attentionSnippet.headline}
                 </p>
                 {attentionSnippet.context && (
@@ -130,28 +155,18 @@ export default async function PortfolioPage() {
               />
             </SectionCard>
           )}
+          </div>
+
+          <div className="order-5 lg:order-none">
+            <ReferencePanel
+              facts={globalFacts}
+              links={globalLinks}
+              scope="global"
+              title="Company reference"
+            />
+          </div>
         </div>
-        <MoneyBlock
-          label="Company net · this month"
-          cents={netThisMonth}
-          trend={trendValues}
-          trendLabels={trendLabels}
-        />
       </div>
-
-      <SectionCard
-        title="Venture priorities"
-        description="Ranked list — blocker-linked next steps surface first."
-      >
-        <VentureHealthTable summaries={summaries} />
-      </SectionCard>
-
-      <ReferencePanel
-        facts={globalFacts}
-        links={globalLinks}
-        scope="global"
-        title="Company reference"
-      />
     </div>
   );
 }

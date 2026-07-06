@@ -37,10 +37,10 @@ export function attentionChipsForVenture(row: VentureHealth): AttentionChip[] {
 export function attentionChipClass(tone: AttentionChip["tone"]): string {
   switch (tone) {
     case "danger":
-      return "border-red-200/80 bg-red-50/90 text-red-900 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-100";
+      return "border-red-600/10 bg-red-50/70 text-red-900/80 dark:border-red-400/15 dark:bg-red-950/25 dark:text-red-200/90";
     case "warning":
-      return "border-amber-200/80 bg-amber-50/90 text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/25 dark:text-amber-100";
+      return "border-amber-600/10 bg-amber-50/70 text-amber-900/80 dark:border-amber-400/15 dark:bg-amber-950/20 dark:text-amber-200/90";
     case "neutral":
-      return "border-border/80 bg-muted/40 text-muted-foreground";
+      return "border-border/60 bg-muted/50 text-muted-foreground/90";
   }
 }

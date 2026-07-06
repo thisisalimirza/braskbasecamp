@@ -78,6 +78,7 @@ export function PipelineBoard({
   return (
     <>
       <DndContext
+        id="studio-pipeline-board"
         sensors={sensors}
         onDragStart={(e) => setActiveId(String(e.active.id))}
         onDragEnd={handleDragEnd}

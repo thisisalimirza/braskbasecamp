@@ -6,7 +6,7 @@ import { VentureDashboardCard } from "@/components/ventures/VentureDashboardCard
 import { PlanKpiBadge } from "@/components/plan/PlanKpiBadge";
 import { formatDate, daysAgoMs } from "@/lib/format";
 import { TRAJECTORY_LABELS, planStatusLabel } from "@/lib/next-actions";
-import { openWeeklyCheckinForVenture, openRecordMoneyPrefilled } from "@/components/AppShell";
+import { openWeeklyCheckinForVenture } from "@/components/AppShell";
 import type { Checkin } from "@/lib/checkins";
 import type { PlanItemStatus } from "@/lib/plan-types";
 import { portfolioAttentionSnippet } from "@/lib/venture-display";
@@ -67,8 +67,8 @@ export function VentureStatusPanel({
       </div>
 
       {attention ? (
-        <div className="mt-4 rounded-xl border border-red-200/80 bg-red-50/90 px-4 py-3 text-sm leading-relaxed text-red-950 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-100">
-          <p className="flex items-center gap-1.5 font-mono text-[10px] font-medium uppercase tracking-wider text-red-800/80 dark:text-red-300/80">
+        <div className="mt-4 rounded-xl bg-red-50/70 px-4 py-3 text-sm leading-relaxed text-red-950/85 dark:bg-red-950/25 dark:text-red-200/90">
+          <p className="flex items-center gap-1.5 font-mono text-[10px] font-medium uppercase tracking-wider text-red-800/70 dark:text-red-300/80">
             {attention.badge === "Current blocker" && <Star className="size-3 fill-current" />}
             {attention.badge ?? "Needs attention"}
             {openBlockerCount > 1 && ` · +${openBlockerCount - 1} more`}
@@ -87,7 +87,7 @@ export function VentureStatusPanel({
       {focusPlanItem && (
         <Link
           href={`/ventures/${ventureSlug}?tab=plan`}
-          className="mt-4 flex items-start gap-2 rounded-xl border border-primary/15 bg-primary/[0.04] px-4 py-3 transition-colors hover:bg-primary/[0.07]"
+          className="mt-4 flex items-start gap-2 rounded-xl bg-primary/[0.05] px-4 py-3 transition-colors hover:bg-primary/[0.09]"
         >
           <div className="min-w-0 flex-1">
             <p className="font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
@@ -105,7 +105,7 @@ export function VentureStatusPanel({
       )}
 
       {stale && (
-        <div className="mt-4 flex items-start gap-2 rounded-lg border border-amber-200/80 bg-amber-50/80 px-3 py-2.5 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-200">
+        <div className="mt-4 flex items-start gap-2 rounded-lg bg-amber-50/80 px-3 py-2.5 text-sm text-amber-900/90 dark:bg-amber-950/25 dark:text-amber-200">
           <AlertCircle className="mt-0.5 size-4 shrink-0" />
           <span>
             {latestCheckin
@@ -115,8 +115,8 @@ export function VentureStatusPanel({
         </div>
       )}
 
-      <div className="mt-auto flex flex-wrap gap-2 pt-4">
-        {needsPulse && (
+      {needsPulse && (
+        <div className="mt-auto pt-4">
           <button
             type="button"
             className="inline-flex h-9 items-center gap-1.5 rounded-full border border-primary/20 bg-primary/[0.06] px-3.5 text-xs font-medium text-primary transition-all hover:bg-primary/10 active:scale-[0.98]"
@@ -125,25 +125,8 @@ export function VentureStatusPanel({
             <ClipboardList className="size-3.5" />
             Run a pulse
           </button>
-        )}
-        {trajectory === "down" && (
-          <Link
-            href={`/ventures/${ventureSlug}?tab=plan`}
-            className="inline-flex h-9 items-center rounded-full border border-border/80 bg-background px-3.5 text-xs font-medium shadow-sm transition-all hover:bg-muted/60"
-          >
-            Log blocker
-          </Link>
-        )}
-        {trajectory === "down" && (
-          <button
-            type="button"
-            className="inline-flex h-9 items-center rounded-full border border-border/80 bg-background px-3.5 text-xs font-medium shadow-sm transition-all hover:bg-muted/60 active:scale-[0.98]"
-            onClick={() => openRecordMoneyPrefilled({ ventureId, kind: "cost" })}
-          >
-            Log spending
-          </button>
-        )}
-      </div>
+        </div>
+      )}
     </VentureDashboardCard>
   );
 }

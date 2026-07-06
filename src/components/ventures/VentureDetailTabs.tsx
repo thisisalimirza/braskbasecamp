@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SectionCard } from "@/components/ui/page-header";
 import { ReferencePanel } from "@/components/portfolio/ReferencePanel";
@@ -59,16 +59,18 @@ export function VentureDetailTabs({
   openBlockerCount,
   portfolioDoingCount = 0,
 }: Props) {
-  const router = useRouter();
   const validTabs = ["plan", "ledger", "ritual", ...(isStudio ? ["pipeline"] : []), "reference"];
-  const activeTab = validTabs.includes(defaultTab) ? defaultTab : "plan";
+  const [activeTab, setActiveTab] = useState(validTabs.includes(defaultTab) ? defaultTab : "plan");
+
+  // All tab data arrives as props, so switching is pure client state. Only the
+  // URL is synced (silently, no navigation) so the tab survives reload/share.
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    window.history.replaceState(null, "", `/ventures/${ventureSlug}?tab=${tab}`);
+  };
 
   return (
-    <Tabs
-      value={activeTab}
-      onValueChange={(tab) => router.push(`/ventures/${ventureSlug}?tab=${tab}`)}
-      className="space-y-5"
-    >
+    <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-5">
       <TabsList className="h-auto w-full justify-start gap-0.5 rounded-xl border border-border/60 bg-muted/30 p-1">
         <TabsTrigger value="plan" className="rounded-lg px-4 py-2 data-active:bg-background data-active:shadow-sm">
           Plan
@@ -94,7 +96,7 @@ export function VentureDetailTabs({
         </TabsTrigger>
       </TabsList>
 
-      <TabsContent value="plan">
+      <TabsContent value="plan" className="min-h-[420px]">
         <VenturePlanPanel
           ventureId={ventureId}
           ventureSlug={ventureSlug}
@@ -106,7 +108,7 @@ export function VentureDetailTabs({
         />
       </TabsContent>
 
-      <TabsContent value="ledger">
+      <TabsContent value="ledger" className="min-h-[420px]">
         <SectionCard title="Money history" description="Everything you've logged for this venture">
           <PnlEntriesTable
             entries={entries}
@@ -118,7 +120,7 @@ export function VentureDetailTabs({
         </SectionCard>
       </TabsContent>
 
-      <TabsContent value="ritual">
+      <TabsContent value="ritual" className="min-h-[420px]">
         <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-sm">
           <h2 className="font-heading text-base font-semibold">Past pulses</h2>
           <p className="mt-1 text-sm text-muted-foreground">How this venture has been doing over time.</p>
@@ -129,7 +131,7 @@ export function VentureDetailTabs({
           ) : (
             <ul className="mt-6 space-y-3">
               {checkins.map((c) => (
-                <li key={c.id} className="rounded-xl border border-border/70 px-4 py-3">
+                <li key={c.id} className="rounded-xl bg-muted/35 px-4 py-3">
                   <div className="flex flex-wrap items-center gap-3">
                     <span
                       className={cn(
@@ -156,7 +158,7 @@ export function VentureDetailTabs({
       </TabsContent>
 
       {isStudio && (
-        <TabsContent value="pipeline" className="space-y-6">
+        <TabsContent value="pipeline" className="min-h-[420px] space-y-6">
           <div className="rounded-2xl border border-border/80 bg-card p-5 shadow-sm">
             <h2 className="font-heading text-base font-semibold">Pipeline</h2>
             <div className="mt-4">
@@ -172,7 +174,7 @@ export function VentureDetailTabs({
         </TabsContent>
       )}
 
-      <TabsContent value="reference">
+      <TabsContent value="reference" className="min-h-[420px]">
         <ReferencePanel facts={facts} links={links} scope={ventureId} ventureSlug={ventureSlug} title="Reference" />
       </TabsContent>
     </Tabs>
