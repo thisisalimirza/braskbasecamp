@@ -29,6 +29,7 @@ const NAV = [
 
 export function AppShell({
   children,
+  user,
   ventures,
   revenueCategories,
   costCategories,
@@ -40,6 +41,7 @@ export function AppShell({
   portfolioDoingCount,
 }: {
   children: React.ReactNode;
+  user: { name: string; email: string };
   ventures: Venture[];
   revenueCategories: Category[];
   costCategories: Category[];
@@ -178,8 +180,17 @@ export function AppShell({
                 : `${ritual.venturesNeedingPulse.length} pulses due`}
             </Button>
           )}
+          <span className="hidden max-w-32 truncate text-sm text-muted-foreground lg:inline" title={user.email}>
+            {user.name}
+          </span>
           <form action={logout}>
-            <Button type="submit" variant="ghost" size="sm" className="text-muted-foreground">
+            <Button
+              type="submit"
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground"
+              title={`Signed in as ${user.email}`}
+            >
               Sign out
             </Button>
           </form>

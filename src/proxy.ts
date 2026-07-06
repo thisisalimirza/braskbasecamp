@@ -1,15 +1,24 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { verifySessionToken, SESSION_COOKIE } from "@/lib/auth";
 
-export async function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
+const PUBLIC_PATHS = new Set(["/login", "/register"]);
 
-  if (pathname === "/login") {
+export async function proxy(req: NextRequest) {
+  const { pathname } = req.nextUrl;
+  const token = req.cookies.get(SESSION_COOKIE)?.value;
+  const userId = await verifySessionToken(token);
+
+  if (PUBLIC_PATHS.has(pathname)) {
+    if (userId) {
+      const url = req.nextUrl.clone();
+      url.pathname = "/";
+      url.search = "";
+      return NextResponse.redirect(url);
+    }
     return NextResponse.next();
   }
 
-  const token = req.cookies.get(SESSION_COOKIE)?.value;
-  if (await verifySessionToken(token)) {
+  if (userId) {
     return NextResponse.next();
   }
 

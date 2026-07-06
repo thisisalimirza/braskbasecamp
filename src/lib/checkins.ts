@@ -1,4 +1,6 @@
 import { getDb, newId, nowMs } from "./db";
+import { requireUserId } from "./current-user";
+import { assertVentureOwned, OWNED_VENTURES } from "./ownership";
 
 export type Trajectory = "up" | "flat" | "down";
 
@@ -23,20 +25,24 @@ function rowToCheckin(row: Record<string, unknown>): Checkin {
 }
 
 export async function getLatestCheckin(ventureId: string): Promise<Checkin | null> {
+  const userId = await requireUserId();
   const db = await getDb();
   const res = await db.execute({
-    sql: "SELECT * FROM checkins WHERE venture_id = ? ORDER BY checked_at DESC LIMIT 1",
-    args: [ventureId],
+    sql: `SELECT * FROM checkins WHERE venture_id = ? AND venture_id IN ${OWNED_VENTURES}
+          ORDER BY checked_at DESC LIMIT 1`,
+    args: [ventureId, userId],
   });
   if (res.rows.length === 0) return null;
   return rowToCheckin(res.rows[0] as Record<string, unknown>);
 }
 
 export async function listCheckins(ventureId: string, limit = 20): Promise<Checkin[]> {
+  const userId = await requireUserId();
   const db = await getDb();
   const res = await db.execute({
-    sql: "SELECT * FROM checkins WHERE venture_id = ? ORDER BY checked_at DESC LIMIT ?",
-    args: [ventureId, limit],
+    sql: `SELECT * FROM checkins WHERE venture_id = ? AND venture_id IN ${OWNED_VENTURES}
+          ORDER BY checked_at DESC LIMIT ?`,
+    args: [ventureId, userId, limit],
   });
   return res.rows.map((r) => rowToCheckin(r as Record<string, unknown>));
 }
@@ -47,7 +53,9 @@ export async function createCheckin(input: {
   trajectory: Trajectory;
   note?: string | null;
 }): Promise<string> {
+  const userId = await requireUserId();
   const db = await getDb();
+  await assertVentureOwned(db, input.ventureId, userId);
   const id = newId();
   await db.execute({
     sql: "INSERT INTO checkins (id, venture_id, checked_at, trajectory, note, created_at) VALUES (?, ?, ?, ?, ?, ?)",
@@ -57,12 +65,14 @@ export async function createCheckin(input: {
 }
 
 export async function getLatestCheckinWithNote(ventureId: string): Promise<Checkin | null> {
+  const userId = await requireUserId();
   const db = await getDb();
   const res = await db.execute({
     sql: `SELECT * FROM checkins
-          WHERE venture_id = ? AND note IS NOT NULL AND TRIM(note) != ''
+          WHERE venture_id = ? AND venture_id IN ${OWNED_VENTURES}
+            AND note IS NOT NULL AND TRIM(note) != ''
           ORDER BY checked_at DESC LIMIT 1`,
-    args: [ventureId],
+    args: [ventureId, userId],
   });
   if (res.rows.length === 0) return null;
   return rowToCheckin(res.rows[0] as Record<string, unknown>);

@@ -1,4 +1,6 @@
 import { getDb, newId, nowMs } from "./db";
+import { requireUserId } from "./current-user";
+import { assertVentureOwned, OWNED_VENTURES } from "./ownership";
 import type { PlanItem, PlanItemStatus, GlobalPlanItem } from "./plan-types";
 import { rowToPlanItem } from "./plan-types";
 import { pickFocusPlanItem } from "./next-actions";
@@ -9,28 +11,30 @@ export type { PlanItem, PlanItemStatus, GlobalPlanItem } from "./plan-types";
 export { PLAN_COLUMNS, rowToPlanItem } from "./plan-types";
 
 export async function listPlanItems(ventureId: string): Promise<PlanItem[]> {
+  const userId = await requireUserId();
   const db = await getDb();
   const res = await db.execute({
     sql: `SELECT p.*, k.name AS kpi_name
           FROM venture_plan_items p
           LEFT JOIN kpi_definitions k ON k.id = p.kpi_definition_id
-          WHERE p.venture_id = ?
+          WHERE p.venture_id = ? AND p.venture_id IN ${OWNED_VENTURES}
           ORDER BY CASE p.status
             WHEN 'doing' THEN 0 WHEN 'next' THEN 1 WHEN 'backlog' THEN 2 ELSE 3 END,
             p.sort_order ASC, p.created_at ASC`,
-    args: [ventureId],
+    args: [ventureId, userId],
   });
   return res.rows.map((r) => rowToPlanItem(r as Record<string, unknown>));
 }
 
 export async function getPlanItemById(id: string): Promise<PlanItem | null> {
+  const userId = await requireUserId();
   const db = await getDb();
   const res = await db.execute({
     sql: `SELECT p.*, k.name AS kpi_name
           FROM venture_plan_items p
           LEFT JOIN kpi_definitions k ON k.id = p.kpi_definition_id
-          WHERE p.id = ?`,
-    args: [id],
+          WHERE p.id = ? AND p.venture_id IN ${OWNED_VENTURES}`,
+    args: [id, userId],
   });
   if (res.rows.length === 0) return null;
   return rowToPlanItem(res.rows[0] as Record<string, unknown>);
@@ -49,7 +53,9 @@ export async function createPlanItem(input: {
   blockerId?: string | null;
   kpiDefinitionId?: string | null;
 }): Promise<PlanItem> {
+  const userId = await requireUserId();
   const db = await getDb();
+  await assertVentureOwned(db, input.ventureId, userId);
   const id = newId();
   const ts = nowMs();
   const status = input.status ?? "backlog";
@@ -87,6 +93,7 @@ export async function updatePlanItem(
   id: string,
   input: Partial<{ title: string; notes: string | null; blockerId: string | null; kpiDefinitionId: string | null }>
 ): Promise<void> {
+  const userId = await requireUserId();
   const db = await getDb();
   const fields: string[] = [];
   const args: (string | number | null)[] = [];
@@ -109,14 +116,15 @@ export async function updatePlanItem(
   }
   if (fields.length === 0) return;
 
-  args.push(id);
+  args.push(id, userId);
   await db.execute({
-    sql: `UPDATE venture_plan_items SET ${fields.join(", ")} WHERE id = ?`,
+    sql: `UPDATE venture_plan_items SET ${fields.join(", ")} WHERE id = ? AND venture_id IN ${OWNED_VENTURES}`,
     args,
   });
 }
 
 export async function movePlanItem(id: string, status: PlanItemStatus, sortOrder: number): Promise<void> {
+  const userId = await requireUserId();
   const current = await getPlanItemById(id);
   if (!current) throw new Error("Plan step not found");
 
@@ -142,28 +150,35 @@ export async function movePlanItem(id: string, status: PlanItemStatus, sortOrder
   const completedAt = status === "done" ? ts : null;
   const statusChangedAt = current.status !== status ? ts : current.statusChangedAt;
   await db.execute({
-    sql: "UPDATE venture_plan_items SET status = ?, sort_order = ?, completed_at = ?, status_changed_at = ? WHERE id = ?",
-    args: [status, sortOrder, completedAt, statusChangedAt, id],
+    sql: `UPDATE venture_plan_items SET status = ?, sort_order = ?, completed_at = ?, status_changed_at = ?
+          WHERE id = ? AND venture_id IN ${OWNED_VENTURES}`,
+    args: [status, sortOrder, completedAt, statusChangedAt, id, userId],
   });
 }
 
 export async function deletePlanItem(id: string): Promise<void> {
+  const userId = await requireUserId();
   const db = await getDb();
-  await db.execute({ sql: "DELETE FROM venture_plan_items WHERE id = ?", args: [id] });
+  await db.execute({
+    sql: `DELETE FROM venture_plan_items WHERE id = ? AND venture_id IN ${OWNED_VENTURES}`,
+    args: [id, userId],
+  });
 }
 
 export async function listAllPlanItems(): Promise<GlobalPlanItem[]> {
+  const userId = await requireUserId();
   const db = await getDb();
   const res = await db.execute({
     sql: `SELECT p.*, v.name AS venture_name, v.slug AS venture_slug,
                  b.body AS blocker_body, k.name AS kpi_name
           FROM venture_plan_items p
-          INNER JOIN ventures v ON v.id = p.venture_id AND v.status = 'active'
+          INNER JOIN ventures v ON v.id = p.venture_id AND v.status = 'active' AND v.user_id = ?
           LEFT JOIN venture_blockers b ON b.id = p.blocker_id
           LEFT JOIN kpi_definitions k ON k.id = p.kpi_definition_id
           ORDER BY CASE p.status
             WHEN 'doing' THEN 0 WHEN 'next' THEN 1 WHEN 'backlog' THEN 2 ELSE 3 END,
             p.sort_order ASC, p.created_at ASC`,
+    args: [userId],
   });
 
   return res.rows.map((row) => {
@@ -185,18 +200,20 @@ export async function getUpcomingPlanItemsForVentures(
   if (ventureIds.length === 0) return map;
   for (const id of ventureIds) map.set(id, []);
 
+  const userId = await requireUserId();
   const db = await getDb();
   const placeholders = ventureIds.map(() => "?").join(",");
   const res = await db.execute({
     sql: `SELECT p.*, k.name AS kpi_name
           FROM venture_plan_items p
           LEFT JOIN kpi_definitions k ON k.id = p.kpi_definition_id
-          WHERE p.venture_id IN (${placeholders}) AND p.status IN ('doing', 'next')
+          WHERE p.venture_id IN (${placeholders}) AND p.venture_id IN ${OWNED_VENTURES}
+            AND p.status IN ('doing', 'next')
           ORDER BY venture_id,
-            CASE status WHEN 'doing' THEN 0 ELSE 1 END,
+            CASE p.status WHEN 'doing' THEN 0 ELSE 1 END,
             sort_order ASC,
             created_at ASC`,
-    args: ventureIds,
+    args: [...ventureIds, userId],
   });
 
   for (const row of res.rows) {
@@ -220,17 +237,18 @@ export async function getFocusPlanItemsForVentures(
 
 /** Plan items marked done since a timestamp (portfolio-wide, active ventures). */
 export async function listRecentlyDonePlanItems(sinceMs: number): Promise<GlobalPlanItem[]> {
+  const userId = await requireUserId();
   const db = await getDb();
   const res = await db.execute({
     sql: `SELECT p.*, v.name AS venture_name, v.slug AS venture_slug,
                  b.body AS blocker_body, k.name AS kpi_name
           FROM venture_plan_items p
-          INNER JOIN ventures v ON v.id = p.venture_id AND v.status = 'active'
+          INNER JOIN ventures v ON v.id = p.venture_id AND v.status = 'active' AND v.user_id = ?
           LEFT JOIN venture_blockers b ON b.id = p.blocker_id
           LEFT JOIN kpi_definitions k ON k.id = p.kpi_definition_id
           WHERE p.status = 'done' AND p.completed_at IS NOT NULL AND p.completed_at >= ?
           ORDER BY p.completed_at DESC`,
-    args: [sinceMs],
+    args: [userId, sinceMs],
   });
 
   return res.rows.map((row) => {
@@ -246,11 +264,13 @@ export async function listRecentlyDonePlanItems(sinceMs: number): Promise<Global
 }
 
 export async function countPortfolioDoingItems(): Promise<number> {
+  const userId = await requireUserId();
   const db = await getDb();
   const res = await db.execute({
     sql: `SELECT COUNT(*) AS c FROM venture_plan_items p
-          INNER JOIN ventures v ON v.id = p.venture_id AND v.status = 'active'
+          INNER JOIN ventures v ON v.id = p.venture_id AND v.status = 'active' AND v.user_id = ?
           WHERE p.status = 'doing'`,
+    args: [userId],
   });
   return Number((res.rows[0] as Record<string, unknown>).c);
 }

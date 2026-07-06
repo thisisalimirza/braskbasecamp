@@ -17,7 +17,12 @@ export async function getDb(): Promise<Client> {
     global.__bbcDbClient = makeClient();
   }
   if (!global.__bbcDbMigrated) {
-    global.__bbcDbMigrated = runMigrations(global.__bbcDbClient);
+    // Clear the cached promise on failure so the next request retries
+    // instead of being stuck on a rejected migration forever.
+    global.__bbcDbMigrated = runMigrations(global.__bbcDbClient).catch((e) => {
+      global.__bbcDbMigrated = undefined;
+      throw e;
+    });
   }
   await global.__bbcDbMigrated;
   return global.__bbcDbClient;

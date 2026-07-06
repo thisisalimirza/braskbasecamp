@@ -1,13 +1,13 @@
 # Brask Base Camp
 
-Internal management hub for Brask Group ventures.
+Venture management hub — each user has their own account and their own portfolio of ventures.
 
 ## Stack
 
 - Next.js 16 + TypeScript
 - Turso (libSQL / SQLite)
 - shadcn/ui + Tailwind 4
-- Single-password auth (HMAC session cookie)
+- Email + password accounts (scrypt password hashes, HMAC-signed session cookie)
 
 ## Local development
 
@@ -17,9 +17,12 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Default login password: `changeme` (set `APP_PASSWORD` in `.env.local`).
+Visit `/register` to create an account. Migrations run automatically on first DB access against `file:./local.db`.
 
-Migrations run automatically on first DB access against `file:./local.db`.
+## Accounts & data ownership
+
+- Anyone can create an account at `/register`; every account has fully isolated ventures, P&L, tasks, and settings.
+- **The first account ever registered claims all data created before multi-user support** (pre-existing ventures, money history, settings). If you are upgrading an existing deployment, register your own account before sharing the link.
 
 ## Environment variables
 
@@ -27,8 +30,9 @@ Migrations run automatically on first DB access against `file:./local.db`.
 |----------|-------------|
 | `TURSO_DATABASE_URL` | Turso URL or `file:./local.db` for local |
 | `TURSO_AUTH_TOKEN` | Turso auth token (omit for local file) |
-| `APP_PASSWORD` | Shared login password |
-| `SESSION_SECRET` | HMAC secret for session cookie |
+| `SESSION_SECRET` | HMAC secret for session cookies. **Required in production** — generate with `openssl rand -base64 32` |
+
+`APP_PASSWORD` is no longer used — logins are per-account.
 
 ## Production (Turso + Vercel)
 
@@ -44,11 +48,11 @@ Migrations run automatically on first DB access against `file:./local.db`.
    # Against Turso — set TURSO_DATABASE_URL and TURSO_AUTH_TOKEN first
    npm run migrate
    ```
-   Migrations also run automatically on first DB access in the app, but running `npm run migrate` once after deploy confirms the remote schema is current (including `004` and `005`).
+   Migrations also run automatically on first DB access in the app, but running `npm run migrate` once after deploy confirms the remote schema is current.
 
-3. Deploy to Vercel and set env vars (`TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`, `APP_PASSWORD`, `SESSION_SECRET`).
+3. Deploy to Vercel and set env vars (`TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`, `SESSION_SECRET`).
 
-4. Optional: enable Vercel Deployment Protection for an extra gate.
+4. Register your account first so it claims your existing data, then share the URL with friends.
 
 ## Scripts
 

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { login } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,9 +8,9 @@ import { Tent } from "lucide-react";
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; email?: string }>;
 }) {
-  const { error } = await searchParams;
+  const { error, email } = await searchParams;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -19,17 +20,45 @@ export default async function LoginPage({
             <Tent className="size-6" />
           </span>
           <h1 className="font-heading mt-4 text-2xl font-semibold tracking-tight">Brask Base Camp</h1>
-          <p className="mt-2 text-sm text-muted-foreground">Internal venture command center</p>
+          <p className="mt-2 text-sm text-muted-foreground">Your venture command center</p>
         </div>
         <form action={login} className="space-y-4 rounded-2xl border border-border/80 bg-card p-6 shadow-sm">
           <div>
-            <Label htmlFor="password">Password</Label>
-            <Input id="password" name="password" type="password" required className="mt-1.5" autoFocus />
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              required
+              autoComplete="email"
+              defaultValue={email ?? ""}
+              className="mt-1.5"
+              autoFocus
+            />
           </div>
-          {error && <p className="text-sm text-red-700 dark:text-red-400">Incorrect password.</p>}
+          <div>
+            <Label htmlFor="password">Password</Label>
+            <Input
+              id="password"
+              name="password"
+              type="password"
+              required
+              autoComplete="current-password"
+              className="mt-1.5"
+            />
+          </div>
+          {error && (
+            <p className="text-sm text-red-700 dark:text-red-400">Incorrect email or password.</p>
+          )}
           <Button type="submit" className="w-full">
             Enter Base Camp
           </Button>
+          <p className="text-center text-sm text-muted-foreground">
+            New here?{" "}
+            <Link href="/register" className="font-medium text-primary hover:underline">
+              Create an account
+            </Link>
+          </p>
         </form>
       </div>
     </div>
