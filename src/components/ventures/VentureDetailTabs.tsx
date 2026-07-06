@@ -129,7 +129,7 @@ export function VentureDetailTabs({
           ) : (
             <ul className="mt-6 space-y-3">
               {checkins.map((c) => (
-                <li key={c.id} className="rounded-xl border border-border/70 px-4 py-3">
+                <li key={c.id} className="rounded-xl bg-muted/35 px-4 py-3">
                   <div className="flex flex-wrap items-center gap-3">
                     <span
                       className={cn(

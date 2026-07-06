@@ -46,12 +46,12 @@ export function SectionCard({
   className?: string;
 }) {
   return (
-    <section className={cn("rounded-2xl border border-border/80 bg-card shadow-sm", className)}>
-      <div className="border-b border-border/60 px-5 py-4">
+    <section className={cn("rounded-2xl border border-border/80 bg-card p-5 shadow-sm sm:p-6", className)}>
+      <div className="mb-5">
         <h2 className="font-heading text-base font-semibold tracking-tight">{title}</h2>
         {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
       </div>
-      <div className="p-5">{children}</div>
+      {children}
     </section>
   );
 }

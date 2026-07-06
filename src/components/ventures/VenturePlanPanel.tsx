@@ -353,10 +353,10 @@ export function VenturePlanPanel({
               <li
                 key={b.id}
                 className={cn(
-                  "flex flex-wrap items-start gap-2 rounded-xl border px-4 py-3 text-sm",
+                  "flex flex-wrap items-start gap-2 rounded-xl px-4 py-3 text-sm",
                   b.isPrimary
-                    ? "border-red-600/10 bg-red-50/60 text-red-950/85 dark:border-red-400/10 dark:bg-red-950/20 dark:text-red-200/90"
-                    : "border-border/70 bg-muted/20"
+                    ? "bg-red-50/70 text-red-950/85 dark:bg-red-950/25 dark:text-red-200/90"
+                    : "bg-muted/40"
                 )}
               >
                 {b.isPrimary && (
@@ -487,7 +487,7 @@ export function VenturePlanPanel({
         </div>
 
         {countDoingItems(items) >= 2 && (
-          <p className="mt-3 rounded-lg border border-amber-200/80 bg-amber-50/80 px-3 py-2 text-xs text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-200">
+          <p className="mt-3 rounded-lg bg-amber-50/80 px-3 py-2 text-xs text-amber-900/90 dark:bg-amber-950/25 dark:text-amber-200">
             {countDoingItems(items)} steps in progress here — finish one before starting more.
           </p>
         )}
@@ -782,8 +782,8 @@ function PlanColumn({
     <div
       ref={setNodeRef}
       className={cn(
-        "flex flex-col rounded-xl border border-border/40 bg-muted/30 transition-colors",
-        isOver && "border-primary/25 bg-accent/30 ring-2 ring-primary/20"
+        "flex flex-col rounded-xl bg-muted/35 transition-colors",
+        isOver && "bg-accent/40 ring-2 ring-primary/20"
       )}
     >
       <PlanColumnHeader column={column} count={items.length} onAdd={onAdd} />
@@ -979,7 +979,7 @@ function PlanListView({
       {items.length > 0 && (
         <ul className="space-y-2">
           {items.map((item) => (
-            <li key={item.id} className="rounded-xl border border-border/70 p-3">
+            <li key={item.id} className="rounded-xl bg-muted/35 p-3.5">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0 flex-1">
                   <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">

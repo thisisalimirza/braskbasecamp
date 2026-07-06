@@ -132,7 +132,7 @@ function NextAction({ action }: { action: VentureAction }) {
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
         isUnset
           ? "border border-dashed border-border text-muted-foreground hover:border-primary/40 hover:bg-primary/[0.03] hover:text-foreground"
-          : "border border-primary/15 bg-primary/[0.05] hover:border-primary/30 hover:bg-primary/[0.09]"
+          : "bg-primary/[0.06] hover:bg-primary/[0.1]"
       )}
     >
       <span className="flex items-start justify-between gap-2">

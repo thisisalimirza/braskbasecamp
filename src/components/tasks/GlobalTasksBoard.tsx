@@ -454,7 +454,7 @@ export function GlobalTasksBoard({
                 return (
                   <li
                     key={item.id}
-                    className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border/70 p-3"
+                    className="flex flex-wrap items-start justify-between gap-3 rounded-xl bg-muted/35 p-3.5"
                   >
                     <button type="button" className="min-w-0 flex-1 text-left" onClick={() => openEdit(item)}>
                       <div className="flex flex-wrap items-center gap-2">
@@ -799,8 +799,8 @@ function TaskColumn({
     <div
       ref={setNodeRef}
       className={cn(
-        "flex flex-col rounded-xl border border-border/40 bg-muted/30 transition-colors",
-        isOver && "border-primary/25 bg-accent/30 ring-2 ring-primary/20"
+        "flex flex-col rounded-xl bg-muted/35 transition-colors",
+        isOver && "bg-accent/40 ring-2 ring-primary/20"
       )}
     >
       <PlanColumnHeader column={column} count={items.length} onAdd={onAdd} />
@@ -934,7 +934,7 @@ function TaskListView({
             {group.items.map((item) => (
               <li
                 key={item.id}
-                className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-border/70 p-3 hover:bg-muted/20"
+                className="flex flex-wrap items-start justify-between gap-3 rounded-xl bg-muted/35 p-3.5 transition-colors hover:bg-muted/50"
               >
                 <button type="button" className="min-w-0 flex-1 text-left" onClick={() => onEdit(item)}>
                   <div className="flex flex-wrap items-center gap-2">

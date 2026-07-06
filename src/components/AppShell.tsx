@@ -51,7 +51,6 @@ export function AppShell({
   portfolioDoingCount: number;
 }) {
   const pathname = usePathname();
-  const wideLayout = pathname.startsWith("/tasks");
   const [recordOpen, setRecordOpen] = useState(false);
   const [recordPrefill, setRecordPrefill] = useState<RecordPrefill>();
   const [checkinOpen, setCheckinOpen] = useState(false);
@@ -139,7 +138,7 @@ export function AppShell({
   return (
     <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-40 border-b border-border/80 bg-background/90 backdrop-blur-md">
-        <div className="mx-auto flex max-w-4xl items-center gap-6 px-4 py-3.5 sm:px-6">
+        <div className="mx-auto flex max-w-[1240px] items-center gap-6 px-4 py-3.5 sm:px-6">
           <Link href="/" className="flex items-center gap-2.5 font-heading text-lg font-semibold tracking-tight">
             <span className="flex size-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
               <Tent className="size-4" />
@@ -186,12 +185,7 @@ export function AppShell({
         </div>
       </header>
 
-      <main
-        className={cn(
-          "mx-auto w-full flex-1 px-4 py-8 sm:px-6",
-          wideLayout ? "max-w-[min(1240px,100%)]" : "max-w-4xl"
-        )}
-      >
+      <main className="mx-auto w-full max-w-[1240px] flex-1 px-4 py-8 sm:px-6">
         {children}
       </main>
 

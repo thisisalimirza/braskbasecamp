@@ -67,7 +67,7 @@ export function VentureStatusPanel({
       </div>
 
       {attention ? (
-        <div className="mt-4 rounded-xl border border-red-600/10 bg-red-50/60 px-4 py-3 text-sm leading-relaxed text-red-950/85 dark:border-red-400/10 dark:bg-red-950/20 dark:text-red-200/90">
+        <div className="mt-4 rounded-xl bg-red-50/70 px-4 py-3 text-sm leading-relaxed text-red-950/85 dark:bg-red-950/25 dark:text-red-200/90">
           <p className="flex items-center gap-1.5 font-mono text-[10px] font-medium uppercase tracking-wider text-red-800/70 dark:text-red-300/80">
             {attention.badge === "Current blocker" && <Star className="size-3 fill-current" />}
             {attention.badge ?? "Needs attention"}
@@ -87,7 +87,7 @@ export function VentureStatusPanel({
       {focusPlanItem && (
         <Link
           href={`/ventures/${ventureSlug}?tab=plan`}
-          className="mt-4 flex items-start gap-2 rounded-xl border border-primary/15 bg-primary/[0.04] px-4 py-3 transition-colors hover:bg-primary/[0.07]"
+          className="mt-4 flex items-start gap-2 rounded-xl bg-primary/[0.05] px-4 py-3 transition-colors hover:bg-primary/[0.09]"
         >
           <div className="min-w-0 flex-1">
             <p className="font-mono text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
@@ -105,7 +105,7 @@ export function VentureStatusPanel({
       )}
 
       {stale && (
-        <div className="mt-4 flex items-start gap-2 rounded-lg border border-amber-200/80 bg-amber-50/80 px-3 py-2.5 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-200">
+        <div className="mt-4 flex items-start gap-2 rounded-lg bg-amber-50/80 px-3 py-2.5 text-sm text-amber-900/90 dark:bg-amber-950/25 dark:text-amber-200">
           <AlertCircle className="mt-0.5 size-4 shrink-0" />
           <span>
             {latestCheckin
