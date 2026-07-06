@@ -19,20 +19,7 @@ export function VentureMoneySnapshot({
   const chartData = trendLabels.map((label, i) => ({ label, value: trend[i] ?? 0 }));
 
   return (
-    <VentureDashboardCard
-      label="Money · this month"
-      tone={tone}
-      footer={
-        chartData.length > 1 ? (
-          <>
-            <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-              6-month net
-            </p>
-            <TrendChart data={chartData} variant="money" />
-          </>
-        ) : undefined
-      }
-    >
+    <VentureDashboardCard label="Money · this month" tone={tone}>
       <p className="font-heading text-3xl font-semibold tabular-nums tracking-tight">
         {formatCents(netCents)}
       </p>
@@ -41,6 +28,14 @@ export function VentureMoneySnapshot({
         <span className="mx-1.5 opacity-40">·</span>
         <span>{formatCents(costCents)} out</span>
       </p>
+      {chartData.length > 1 && (
+        <div className="mt-6 border-t border-border/40 pt-4">
+          <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+            6-month net
+          </p>
+          <TrendChart data={chartData} variant="money" />
+        </div>
+      )}
     </VentureDashboardCard>
   );
 }

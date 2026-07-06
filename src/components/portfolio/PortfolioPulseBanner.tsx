@@ -13,7 +13,7 @@ export function PortfolioPulseBanner({ ritual }: { ritual: PortfolioRitualStatus
   return (
     <div
       className={cn(
-        "flex flex-col gap-4 rounded-2xl border border-primary/20 bg-primary/[0.04] px-5 py-4 shadow-sm sm:flex-row sm:items-center sm:justify-between"
+        "flex flex-col gap-4 rounded-2xl bg-primary/[0.05] px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
       )}
     >
       <div className="min-w-0">

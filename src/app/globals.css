@@ -144,12 +144,15 @@
     @apply border border-border/70 bg-muted/40 text-foreground;
   }
   .status-up {
-    @apply bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300;
+    @apply bg-emerald-100/70 text-emerald-800 ring-1 ring-inset ring-emerald-600/10 dark:bg-emerald-950/50 dark:text-emerald-300 dark:ring-emerald-400/10;
   }
   .status-flat {
-    @apply bg-stone-200/80 text-stone-700 dark:bg-stone-800 dark:text-stone-300;
+    @apply bg-stone-100 text-stone-600 ring-1 ring-inset ring-stone-500/10 dark:bg-stone-800/80 dark:text-stone-300 dark:ring-stone-400/10;
   }
   .status-down {
-    @apply bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-300;
+    @apply bg-red-50 text-red-700/90 ring-1 ring-inset ring-red-600/10 dark:bg-red-950/50 dark:text-red-300 dark:ring-red-400/10;
+  }
+  .blocker-note {
+    @apply flex items-start gap-2 rounded-lg bg-red-50/70 px-2.5 py-1.5 text-xs leading-relaxed text-red-950/80 dark:bg-red-950/25 dark:text-red-200/85;
   }
 }

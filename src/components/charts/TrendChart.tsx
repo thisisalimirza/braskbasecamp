@@ -33,9 +33,9 @@ export function TrendChart({
           const isNegative = variant === "money" && point.value < 0;
           const isPositive = variant === "money" && point.value > 0;
           return (
-            <div key={point.label} className="flex flex-1 flex-col items-center gap-2">
-              <span className="text-[10px] tabular-nums text-muted-foreground">
-                {formatValue(point.value)}
+            <div key={point.label} className="flex flex-1 flex-col items-center gap-1.5">
+              <span className="h-[14px] whitespace-nowrap text-[10px] leading-[14px] tabular-nums text-muted-foreground">
+                {point.value !== 0 ? formatValue(point.value) : ""}
               </span>
               <div
                 className={cn(
@@ -43,12 +43,14 @@ export function TrendChart({
                   variant === "kpi" && "bg-stone-300 dark:bg-stone-600",
                   variant === "money" && isNegative && "bg-red-300/80 dark:bg-red-800/60",
                   variant === "money" && isPositive && "bg-emerald-400/80 dark:bg-emerald-700/60",
-                  variant === "money" && point.value === 0 && "bg-stone-200 dark:bg-stone-700"
+                  variant === "money" && point.value === 0 && "bg-stone-200/90 dark:bg-stone-700"
                 )}
                 style={{ height: barHeight }}
                 title={`${point.label}: ${formatValue(point.value)}`}
               />
-              <span className="text-[10px] font-medium text-muted-foreground">{point.label}</span>
+              <span className="whitespace-nowrap text-[10px] font-medium text-muted-foreground/75">
+                {point.label}
+              </span>
             </div>
           );
         })}

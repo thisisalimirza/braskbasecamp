@@ -1,7 +1,9 @@
+import { TrendingDown, TrendingUp } from "lucide-react";
 import { VentureDashboardCard } from "@/components/ventures/VentureDashboardCard";
 import { KpiMetricsDialog, KpiMetricsDialogProminent } from "@/components/ventures/KpiMetricsDialog";
-import { formatKpiValue, kpiUnitLabel } from "@/lib/kpi-units";
+import { formatKpiValue } from "@/lib/kpi-units";
 import type { KpiWithLatest } from "@/lib/kpis";
+import { cn } from "@/lib/utils";
 
 export function KpiGlance({
   kpis,
@@ -39,27 +41,31 @@ export function KpiGlance({
             return (
               <div
                 key={kpi.id}
-                className="flex items-center justify-between gap-3 rounded-xl border border-transparent bg-muted/35 px-3.5 py-3"
+                className="flex items-center justify-between gap-3 rounded-xl bg-muted/35 px-3.5 py-3"
               >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">{kpi.name}</p>
-                  <p className="text-[11px] text-muted-foreground">{kpiUnitLabel(kpi.unit)}</p>
-                </div>
-                <div className="shrink-0 text-right">
+                <p className="min-w-0 truncate text-sm font-medium">{kpi.name}</p>
+                <div className="flex shrink-0 items-center gap-2">
                   <p className="font-heading text-xl font-semibold tabular-nums tracking-tight">
                     {formatKpiValue(kpi.latestValue, kpi.unit)}
                   </p>
                   {delta != null && delta !== 0 && (
-                    <p
-                      className={`text-[11px] font-medium tabular-nums ${
+                    <span
+                      className={cn(
+                        "inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium tabular-nums",
                         delta > 0
-                          ? "text-emerald-700 dark:text-emerald-400"
-                          : "text-red-700 dark:text-red-400"
-                      }`}
+                          ? "bg-emerald-100/60 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300"
+                          : "bg-red-50 text-red-700/90 dark:bg-red-950/40 dark:text-red-300"
+                      )}
+                      title="Change since previous entry"
                     >
+                      {delta > 0 ? (
+                        <TrendingUp className="size-2.5" aria-hidden />
+                      ) : (
+                        <TrendingDown className="size-2.5" aria-hidden />
+                      )}
                       {delta > 0 ? "+" : ""}
                       {delta.toLocaleString()}
-                    </p>
+                    </span>
                   )}
                 </div>
               </div>
