@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { requireUser } from "@/lib/current-user";
 import { listVentures, listActiveVentures } from "@/lib/ventures";
 import { listCategories } from "@/lib/categories";
 import { listClients } from "@/lib/clients";
@@ -16,6 +17,7 @@ import { daysAgoMs } from "@/lib/format";
 import type { VentureCheckinDraft } from "@/components/wizards/weekly-checkin-types";
 
 export async function getAppShellData() {
+  const user = await requireUser();
   const [ventures, revenueCategories, costCategories, clients, activeVentures, ritual] =
     await Promise.all([
       listVentures(),
@@ -75,6 +77,7 @@ export async function getAppShellData() {
   }
 
   return {
+    user: { name: user.name, email: user.email },
     ventures,
     revenueCategories,
     costCategories,

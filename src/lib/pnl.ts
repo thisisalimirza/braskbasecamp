@@ -1,4 +1,6 @@
 import { getDb, newId, nowMs } from "./db";
+import { requireUserId } from "./current-user";
+import { assertVentureOwned } from "./ownership";
 import { startOfMonthMs, startOfPrevMonthMs, endOfMonthMs } from "./format";
 
 export type PnlEntryType = "revenue" | "cost" | "owner_transaction";
@@ -50,9 +52,10 @@ export async function netCents(filter: {
   to?: number;
   companyWideOnly?: boolean;
 }): Promise<number> {
+  const userId = await requireUserId();
   const db = await getDb();
-  const conditions = ["entry_type IN ('revenue', 'cost')"];
-  const args: (string | number)[] = [];
+  const conditions = ["user_id = ?", "entry_type IN ('revenue', 'cost')"];
+  const args: (string | number)[] = [userId];
 
   if (filter.companyWideOnly) {
     conditions.push("venture_id IS NULL");
@@ -113,6 +116,7 @@ export type VentureRanking = {
 };
 
 export async function ventureRanking(startOfMonth: number): Promise<VentureRanking[]> {
+  const userId = await requireUserId();
   const db = await getDb();
   const res = await db.execute({
     sql: `SELECT v.id, v.name, v.slug,
@@ -120,10 +124,10 @@ export async function ventureRanking(startOfMonth: number): Promise<VentureRanki
       COALESCE(SUM(CASE WHEN p.entry_type = 'cost' THEN p.amount_cents ELSE 0 END), 0) AS net_cents
     FROM ventures v
     LEFT JOIN pnl_entries p ON p.venture_id = v.id AND p.occurred_on >= ?
-    WHERE v.status = 'active'
+    WHERE v.user_id = ? AND v.status = 'active'
     GROUP BY v.id
     ORDER BY net_cents DESC`,
-    args: [startOfMonth],
+    args: [startOfMonth, userId],
   });
   return res.rows.map((r) => ({
     id: String(r.id),
@@ -134,13 +138,15 @@ export async function ventureRanking(startOfMonth: number): Promise<VentureRanki
 }
 
 export async function ownerEquityCents(): Promise<number> {
+  const userId = await requireUserId();
   const db = await getDb();
-  const res = await db.execute(`
-    SELECT
+  const res = await db.execute({
+    sql: `SELECT
       COALESCE(SUM(CASE WHEN direction = 'contribution' THEN amount_cents ELSE 0 END), 0) -
       COALESCE(SUM(CASE WHEN direction = 'draw' THEN amount_cents ELSE 0 END), 0) AS equity
-    FROM pnl_entries WHERE entry_type = 'owner_transaction'
-  `);
+    FROM pnl_entries WHERE user_id = ? AND entry_type = 'owner_transaction'`,
+    args: [userId],
+  });
   return Number(res.rows[0].equity);
 }
 
@@ -148,9 +154,10 @@ export async function listPnlEntries(filter: {
   ventureId?: string | null;
   limit?: number;
 }): Promise<PnlEntry[]> {
+  const userId = await requireUserId();
   const db = await getDb();
-  const conditions: string[] = ["p.entry_type IN ('revenue', 'cost')"];
-  const args: (string | number)[] = [];
+  const conditions: string[] = ["p.user_id = ?", "p.entry_type IN ('revenue', 'cost')"];
+  const args: (string | number)[] = [userId];
 
   if (filter.ventureId !== undefined) {
     if (filter.ventureId === null) {
@@ -176,25 +183,27 @@ export async function listPnlEntries(filter: {
 }
 
 export async function getPnlEntry(id: string): Promise<PnlEntry | null> {
+  const userId = await requireUserId();
   const db = await getDb();
   const res = await db.execute({
     sql: `SELECT p.*, v.name AS venture_name, c.name AS client_name
     FROM pnl_entries p
     LEFT JOIN ventures v ON v.id = p.venture_id
     LEFT JOIN clients c ON c.id = p.client_id
-    WHERE p.id = ?`,
-    args: [id],
+    WHERE p.id = ? AND p.user_id = ?`,
+    args: [id, userId],
   });
   if (res.rows.length === 0) return null;
   return rowToPnl(res.rows[0] as Record<string, unknown>);
 }
 
 export async function lastPnlEntryDate(ventureId: string): Promise<number | null> {
+  const userId = await requireUserId();
   const db = await getDb();
   const res = await db.execute({
     sql: `SELECT MAX(occurred_on) AS last_on FROM pnl_entries
-    WHERE venture_id = ? AND entry_type IN ('revenue', 'cost')`,
-    args: [ventureId],
+    WHERE venture_id = ? AND user_id = ? AND entry_type IN ('revenue', 'cost')`,
+    args: [ventureId, userId],
   });
   const v = res.rows[0].last_on;
   return v == null ? null : Number(v);
@@ -220,16 +229,27 @@ export async function createPnlEntry(input: {
     throw new Error("Direction only for owner transactions");
   }
 
+  const userId = await requireUserId();
   const db = await getDb();
+  if (input.ventureId) await assertVentureOwned(db, input.ventureId, userId);
+  if (input.clientId) {
+    const owned = await db.execute({
+      sql: "SELECT 1 FROM clients WHERE id = ? AND user_id = ?",
+      args: [input.clientId, userId],
+    });
+    if (owned.rows.length === 0) throw new Error("Client not found");
+  }
+
   const id = newId();
   const now = nowMs();
   await db.execute({
     sql: `INSERT INTO pnl_entries
-      (id, venture_id, entry_type, direction, category, amount_cents, occurred_on,
+      (id, user_id, venture_id, entry_type, direction, category, amount_cents, occurred_on,
        is_recurring, payment_source, client_id, notes, source, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'manual', ?, ?)`,
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'manual', ?, ?)`,
     args: [
       id,
+      userId,
       input.ventureId,
       input.entryType,
       input.direction ?? null,
@@ -258,11 +278,13 @@ export async function updatePnlEntry(
     notes: string | null;
   }>
 ): Promise<void> {
+  const userId = await requireUserId();
   const db = await getDb();
   const current = await getPnlEntry(id);
   if (!current) throw new Error("Entry not found");
   await db.execute({
-    sql: `UPDATE pnl_entries SET category = ?, amount_cents = ?, occurred_on = ?, notes = ?, updated_at = ? WHERE id = ?`,
+    sql: `UPDATE pnl_entries SET category = ?, amount_cents = ?, occurred_on = ?, notes = ?, updated_at = ?
+          WHERE id = ? AND user_id = ?`,
     args: [
       input.category ?? current.category,
       input.amountCents ?? current.amountCents,
@@ -270,13 +292,15 @@ export async function updatePnlEntry(
       input.notes !== undefined ? input.notes : current.notes,
       nowMs(),
       id,
+      userId,
     ],
   });
 }
 
 export async function deletePnlEntry(id: string): Promise<void> {
+  const userId = await requireUserId();
   const db = await getDb();
-  await db.execute({ sql: "DELETE FROM pnl_entries WHERE id = ?", args: [id] });
+  await db.execute({ sql: "DELETE FROM pnl_entries WHERE id = ? AND user_id = ?", args: [id, userId] });
 }
 
 export async function companyNetThisMonth(): Promise<number> {
@@ -302,6 +326,7 @@ export async function ventureNetLastMonth(ventureId: string): Promise<number> {
 export async function ventureMonthBreakdown(
   ventureId: string
 ): Promise<{ revenueCents: number; costCents: number; netCents: number }> {
+  const userId = await requireUserId();
   const db = await getDb();
   const from = startOfMonthMs();
   const res = await db.execute({
@@ -309,8 +334,8 @@ export async function ventureMonthBreakdown(
       COALESCE(SUM(CASE WHEN entry_type = 'revenue' THEN amount_cents ELSE 0 END), 0) AS revenue,
       COALESCE(SUM(CASE WHEN entry_type = 'cost' THEN amount_cents ELSE 0 END), 0) AS cost
     FROM pnl_entries
-    WHERE venture_id = ? AND occurred_on >= ? AND entry_type IN ('revenue', 'cost')`,
-    args: [ventureId, from],
+    WHERE venture_id = ? AND user_id = ? AND occurred_on >= ? AND entry_type IN ('revenue', 'cost')`,
+    args: [ventureId, userId, from],
   });
   const revenueCents = Number(res.rows[0].revenue);
   const costCents = Number(res.rows[0].cost);

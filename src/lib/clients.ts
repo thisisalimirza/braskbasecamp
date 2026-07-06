@@ -1,4 +1,5 @@
 import { getDb, newId, nowMs } from "./db";
+import { requireUserId } from "./current-user";
 
 export type ClientStage = "lead" | "proposal" | "active" | "completed" | "lost";
 
@@ -30,15 +31,18 @@ function rowToClient(row: Record<string, unknown>): Client {
 }
 
 export async function listClients(): Promise<Client[]> {
+  const userId = await requireUserId();
   const db = await getDb();
-  const res = await db.execute(`
-    SELECT c.*,
+  const res = await db.execute({
+    sql: `SELECT c.*,
       COALESCE(SUM(CASE WHEN p.entry_type = 'revenue' THEN p.amount_cents ELSE 0 END), 0) AS lifetime_revenue_cents
     FROM clients c
     LEFT JOIN pnl_entries p ON p.client_id = c.id
+    WHERE c.user_id = ?
     GROUP BY c.id
-    ORDER BY c.name
-  `);
+    ORDER BY c.name`,
+    args: [userId],
+  });
   return res.rows.map((r) => rowToClient(r as Record<string, unknown>));
 }
 
@@ -48,15 +52,16 @@ export async function listClientsByStage(stage: ClientStage): Promise<Client[]> 
 }
 
 export async function getClient(id: string): Promise<Client | null> {
+  const userId = await requireUserId();
   const db = await getDb();
   const res = await db.execute({
     sql: `SELECT c.*,
       COALESCE(SUM(CASE WHEN p.entry_type = 'revenue' THEN p.amount_cents ELSE 0 END), 0) AS lifetime_revenue_cents
     FROM clients c
     LEFT JOIN pnl_entries p ON p.client_id = c.id
-    WHERE c.id = ?
+    WHERE c.id = ? AND c.user_id = ?
     GROUP BY c.id`,
-    args: [id],
+    args: [id, userId],
   });
   if (res.rows.length === 0) return null;
   return rowToClient(res.rows[0] as Record<string, unknown>);
@@ -69,14 +74,16 @@ export async function createClient(input: {
   contactInfo?: string | null;
   notes?: string | null;
 }): Promise<Client> {
+  const userId = await requireUserId();
   const db = await getDb();
   const id = newId();
   const now = nowMs();
   await db.execute({
-    sql: `INSERT INTO clients (id, name, stage, estimated_value_cents, contact_info, notes, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    sql: `INSERT INTO clients (id, user_id, name, stage, estimated_value_cents, contact_info, notes, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     args: [
       id,
+      userId,
       input.name,
       input.stage ?? "lead",
       input.estimatedValueCents ?? null,
@@ -92,10 +99,11 @@ export async function createClient(input: {
 }
 
 export async function updateClientStage(id: string, stage: ClientStage): Promise<void> {
+  const userId = await requireUserId();
   const db = await getDb();
   await db.execute({
-    sql: "UPDATE clients SET stage = ?, updated_at = ? WHERE id = ?",
-    args: [stage, nowMs(), id],
+    sql: "UPDATE clients SET stage = ?, updated_at = ? WHERE id = ? AND user_id = ?",
+    args: [stage, nowMs(), id, userId],
   });
 }
 
@@ -109,11 +117,13 @@ export async function updateClient(
     notes: string | null;
   }>
 ): Promise<void> {
+  const userId = await requireUserId();
   const db = await getDb();
   const current = await getClient(id);
   if (!current) throw new Error("Client not found");
   await db.execute({
-    sql: `UPDATE clients SET name = ?, stage = ?, estimated_value_cents = ?, contact_info = ?, notes = ?, updated_at = ? WHERE id = ?`,
+    sql: `UPDATE clients SET name = ?, stage = ?, estimated_value_cents = ?, contact_info = ?, notes = ?, updated_at = ?
+          WHERE id = ? AND user_id = ?`,
     args: [
       input.name ?? current.name,
       input.stage ?? current.stage,
@@ -122,6 +132,7 @@ export async function updateClient(
       input.notes !== undefined ? input.notes : current.notes,
       nowMs(),
       id,
+      userId,
     ],
   });
 }

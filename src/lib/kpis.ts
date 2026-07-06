@@ -1,4 +1,6 @@
 import { getDb, newId, nowMs } from "./db";
+import { requireUserId } from "./current-user";
+import { assertVentureOwned, OWNED_KPI_DEFINITIONS, OWNED_VENTURES } from "./ownership";
 
 export type KpiDefinition = {
   id: string;
@@ -39,10 +41,11 @@ function rowToEntry(row: Record<string, unknown>): KpiEntry {
 }
 
 export async function listKpiDefinitions(ventureId: string): Promise<KpiDefinition[]> {
+  const userId = await requireUserId();
   const db = await getDb();
   const res = await db.execute({
-    sql: "SELECT * FROM kpi_definitions WHERE venture_id = ? ORDER BY sort_order, name",
-    args: [ventureId],
+    sql: `SELECT * FROM kpi_definitions WHERE venture_id = ? AND venture_id IN ${OWNED_VENTURES} ORDER BY sort_order, name`,
+    args: [ventureId, userId],
   });
   return res.rows.map((r) => rowToDef(r as Record<string, unknown>));
 }
@@ -54,11 +57,14 @@ export async function listKpiDefinitionsForVentures(
   for (const id of ventureIds) map[id] = [];
   if (ventureIds.length === 0) return map;
 
+  const userId = await requireUserId();
   const db = await getDb();
   const placeholders = ventureIds.map(() => "?").join(",");
   const res = await db.execute({
-    sql: `SELECT * FROM kpi_definitions WHERE venture_id IN (${placeholders}) ORDER BY venture_id, sort_order, name`,
-    args: ventureIds,
+    sql: `SELECT * FROM kpi_definitions
+          WHERE venture_id IN (${placeholders}) AND venture_id IN ${OWNED_VENTURES}
+          ORDER BY venture_id, sort_order, name`,
+    args: [...ventureIds, userId],
   });
   for (const row of res.rows) {
     const def = rowToDef(row as Record<string, unknown>);
@@ -73,7 +79,9 @@ export async function createKpiDefinition(input: {
   unit?: string;
   sortOrder?: number;
 }): Promise<KpiDefinition> {
+  const userId = await requireUserId();
   const db = await getDb();
+  await assertVentureOwned(db, input.ventureId, userId);
   const id = newId();
   const now = nowMs();
   await db.execute({
@@ -87,26 +95,39 @@ export async function createKpiDefinition(input: {
 }
 
 export async function deleteKpiDefinition(id: string): Promise<void> {
+  const userId = await requireUserId();
   const db = await getDb();
-  await db.execute({ sql: "DELETE FROM kpi_entries WHERE kpi_definition_id = ?", args: [id] });
-  await db.execute({ sql: "DELETE FROM kpi_definitions WHERE id = ?", args: [id] });
+  await db.execute({
+    sql: `DELETE FROM kpi_entries WHERE kpi_definition_id = ? AND kpi_definition_id IN ${OWNED_KPI_DEFINITIONS}`,
+    args: [id, userId],
+  });
+  await db.execute({
+    sql: `DELETE FROM kpi_definitions WHERE id = ? AND venture_id IN ${OWNED_VENTURES}`,
+    args: [id, userId],
+  });
 }
 
 export async function getLatestKpiEntry(definitionId: string): Promise<KpiEntry | null> {
+  const userId = await requireUserId();
   const db = await getDb();
   const res = await db.execute({
-    sql: "SELECT * FROM kpi_entries WHERE kpi_definition_id = ? ORDER BY recorded_on DESC LIMIT 1",
-    args: [definitionId],
+    sql: `SELECT * FROM kpi_entries
+          WHERE kpi_definition_id = ? AND kpi_definition_id IN ${OWNED_KPI_DEFINITIONS}
+          ORDER BY recorded_on DESC LIMIT 1`,
+    args: [definitionId, userId],
   });
   if (res.rows.length === 0) return null;
   return rowToEntry(res.rows[0] as Record<string, unknown>);
 }
 
 export async function listKpiEntries(definitionId: string, limit = 12): Promise<KpiEntry[]> {
+  const userId = await requireUserId();
   const db = await getDb();
   const res = await db.execute({
-    sql: "SELECT * FROM kpi_entries WHERE kpi_definition_id = ? ORDER BY recorded_on DESC LIMIT ?",
-    args: [definitionId, limit],
+    sql: `SELECT * FROM kpi_entries
+          WHERE kpi_definition_id = ? AND kpi_definition_id IN ${OWNED_KPI_DEFINITIONS}
+          ORDER BY recorded_on DESC LIMIT ?`,
+    args: [definitionId, userId, limit],
   });
   return res.rows.map((r) => rowToEntry(r as Record<string, unknown>)).reverse();
 }
@@ -116,7 +137,13 @@ export async function createKpiEntry(input: {
   value: number;
   recordedOn: number;
 }): Promise<void> {
+  const userId = await requireUserId();
   const db = await getDb();
+  const owned = await db.execute({
+    sql: `SELECT 1 FROM kpi_definitions WHERE id = ? AND venture_id IN ${OWNED_VENTURES}`,
+    args: [input.kpiDefinitionId, userId],
+  });
+  if (owned.rows.length === 0) throw new Error("KPI not found");
   await db.execute({
     sql: "INSERT INTO kpi_entries (id, kpi_definition_id, value, recorded_on, created_at) VALUES (?, ?, ?, ?, ?)",
     args: [newId(), input.kpiDefinitionId, input.value, input.recordedOn, nowMs()],

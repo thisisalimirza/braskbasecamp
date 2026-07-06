@@ -1,9 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
 import { cookies } from "next/headers";
-import { checkPassword, createSessionToken, SESSION_COOKIE } from "@/lib/auth";
+import { createSessionToken, SESSION_COOKIE, SESSION_TTL_MS } from "@/lib/auth";
+import { registerUser, verifyCredentials } from "@/lib/users";
 import * as ventures from "@/lib/ventures";
 import * as pnl from "@/lib/pnl";
 import * as kpis from "@/lib/kpis";
@@ -33,6 +34,7 @@ async function run(fn: () => Promise<void>): Promise<FormState> {
     await fn();
     return { ok: true };
   } catch (e) {
+    unstable_rethrow(e);
     return { error: friendlyError(e) };
   }
 }
@@ -51,21 +53,46 @@ function revalidateVenture(slug?: string) {
 
 // --- Auth ---
 
-export async function login(formData: FormData) {
-  const password = String(formData.get("password") ?? "");
-  if (!checkPassword(password)) {
-    redirect("/login?error=1");
-  }
-  const token = await createSessionToken();
+async function startSession(userId: string) {
+  const token = await createSessionToken(userId);
   const jar = await cookies();
   jar.set(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
-    maxAge: 60 * 60 * 24 * 30,
+    maxAge: SESSION_TTL_MS / 1000,
   });
+}
+
+export async function login(formData: FormData) {
+  const email = String(formData.get("email") ?? "");
+  const password = String(formData.get("password") ?? "");
+  const user = await verifyCredentials(email, password);
+  if (!user) {
+    redirect(`/login?error=invalid&email=${encodeURIComponent(email)}`);
+  }
+  await startSession(user.id);
   redirect("/");
+}
+
+export async function register(formData: FormData) {
+  const name = String(formData.get("name") ?? "");
+  const email = String(formData.get("email") ?? "");
+  const password = String(formData.get("password") ?? "");
+  const confirm = String(formData.get("confirm") ?? "");
+
+  const back = (error: string) =>
+    redirect(`/register?error=${error}&name=${encodeURIComponent(name)}&email=${encodeURIComponent(email)}`);
+
+  if (password !== confirm) back("password_mismatch");
+
+  const result = await registerUser({ name, email, password });
+  if (!result.ok) back(result.error);
+  else {
+    await startSession(result.user.id);
+    redirect("/");
+  }
 }
 
 export async function logout() {
@@ -103,6 +130,7 @@ export async function createVentureAction(input: {
     revalidateVenture(venture.slug);
     return { ok: true, slug: venture.slug };
   } catch (e) {
+    unstable_rethrow(e);
     return { error: friendlyError(e) };
   }
 }
@@ -167,6 +195,7 @@ export async function recordPnlEntryAction(input: {
     revalidateVenture(slug);
     return { ok: true };
   } catch (e) {
+    unstable_rethrow(e);
     return { error: friendlyError(e) };
   }
 }
@@ -485,6 +514,7 @@ export async function createClientAction(input: {
     revalidateVenture("brask-studio");
     return { ok: true, clientId: client.id };
   } catch (e) {
+    unstable_rethrow(e);
     return { error: friendlyError(e) };
   }
 }

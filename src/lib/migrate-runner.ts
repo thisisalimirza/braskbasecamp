@@ -34,6 +34,11 @@ async function stampLegacyDatabase(client: Client, files: string[]): Promise<voi
   const applied = await client.execute("SELECT COUNT(*) AS c FROM _schema_migrations");
   if (Number((applied.rows[0] as Record<string, unknown>).c) > 0) return;
 
+  const table = await client.execute(
+    "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'ventures'"
+  );
+  if (table.rows.length === 0) return;
+
   const ventures = await client.execute("SELECT 1 FROM ventures LIMIT 1");
   if (ventures.rows.length === 0) return;
 

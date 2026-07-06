@@ -1,4 +1,5 @@
 import { getDb, newId, nowMs } from "./db";
+import { requireUserId } from "./current-user";
 
 export type ReferenceFact = {
   id: string;
@@ -45,10 +46,11 @@ function rowToLink(row: Record<string, unknown>): ReferenceLink {
 }
 
 export async function listFacts(scope: string): Promise<ReferenceFact[]> {
+  const userId = await requireUserId();
   const db = await getDb();
   const res = await db.execute({
-    sql: "SELECT * FROM reference_facts WHERE scope = ? ORDER BY category, label, updated_at DESC",
-    args: [scope],
+    sql: "SELECT * FROM reference_facts WHERE scope = ? AND user_id = ? ORDER BY category, label, updated_at DESC",
+    args: [scope, userId],
   });
   return res.rows.map((r) => rowToFact(r as Record<string, unknown>));
 }
@@ -58,10 +60,11 @@ export async function listGlobalFacts(): Promise<ReferenceFact[]> {
 }
 
 export async function listLinks(scope: string): Promise<ReferenceLink[]> {
+  const userId = await requireUserId();
   const db = await getDb();
   const res = await db.execute({
-    sql: "SELECT * FROM reference_links WHERE scope = ? ORDER BY category, label, updated_at DESC",
-    args: [scope],
+    sql: "SELECT * FROM reference_links WHERE scope = ? AND user_id = ? ORDER BY category, label, updated_at DESC",
+    args: [scope, userId],
   });
   return res.rows.map((r) => rowToLink(r as Record<string, unknown>));
 }
@@ -72,25 +75,28 @@ export async function createFact(input: {
   value: string;
   category?: string;
 }): Promise<void> {
+  const userId = await requireUserId();
   const db = await getDb();
   const now = nowMs();
   await db.execute({
-    sql: "INSERT INTO reference_facts (id, scope, label, value, category, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-    args: [newId(), input.scope, input.label, input.value, input.category ?? null, now, now],
+    sql: "INSERT INTO reference_facts (id, user_id, scope, label, value, category, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    args: [newId(), userId, input.scope, input.label, input.value, input.category ?? null, now, now],
   });
 }
 
 export async function updateFact(id: string, label: string, value: string, category?: string): Promise<void> {
+  const userId = await requireUserId();
   const db = await getDb();
   await db.execute({
-    sql: "UPDATE reference_facts SET label = ?, value = ?, category = ?, updated_at = ? WHERE id = ?",
-    args: [label, value, category ?? null, nowMs(), id],
+    sql: "UPDATE reference_facts SET label = ?, value = ?, category = ?, updated_at = ? WHERE id = ? AND user_id = ?",
+    args: [label, value, category ?? null, nowMs(), id, userId],
   });
 }
 
 export async function deleteFact(id: string): Promise<void> {
+  const userId = await requireUserId();
   const db = await getDb();
-  await db.execute({ sql: "DELETE FROM reference_facts WHERE id = ?", args: [id] });
+  await db.execute({ sql: "DELETE FROM reference_facts WHERE id = ? AND user_id = ?", args: [id, userId] });
 }
 
 export async function createLink(input: {
@@ -99,23 +105,26 @@ export async function createLink(input: {
   url: string;
   category?: string;
 }): Promise<void> {
+  const userId = await requireUserId();
   const db = await getDb();
   const now = nowMs();
   await db.execute({
-    sql: "INSERT INTO reference_links (id, scope, label, url, category, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-    args: [newId(), input.scope, input.label, input.url, input.category ?? null, now, now],
+    sql: "INSERT INTO reference_links (id, user_id, scope, label, url, category, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    args: [newId(), userId, input.scope, input.label, input.url, input.category ?? null, now, now],
   });
 }
 
 export async function updateLink(id: string, label: string, url: string, category?: string): Promise<void> {
+  const userId = await requireUserId();
   const db = await getDb();
   await db.execute({
-    sql: "UPDATE reference_links SET label = ?, url = ?, category = ?, updated_at = ? WHERE id = ?",
-    args: [label, url, category ?? null, nowMs(), id],
+    sql: "UPDATE reference_links SET label = ?, url = ?, category = ?, updated_at = ? WHERE id = ? AND user_id = ?",
+    args: [label, url, category ?? null, nowMs(), id, userId],
   });
 }
 
 export async function deleteLink(id: string): Promise<void> {
+  const userId = await requireUserId();
   const db = await getDb();
-  await db.execute({ sql: "DELETE FROM reference_links WHERE id = ?", args: [id] });
+  await db.execute({ sql: "DELETE FROM reference_links WHERE id = ? AND user_id = ?", args: [id, userId] });
 }

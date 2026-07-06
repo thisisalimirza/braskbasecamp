@@ -1,5 +1,7 @@
 import { listActiveVentures } from "./ventures";
 import { getDb } from "./db";
+import { requireUserId } from "./current-user";
+import { OWNED_VENTURES } from "./ownership";
 import { daysAgoMs } from "./format";
 import type { PortfolioRitualStatus, RitualStatus, VenturePulseNeed } from "./ritual-copy";
 
@@ -12,17 +14,19 @@ const OVERDUE_MS = 14 * 24 * 60 * 60 * 1000;
 /** Count consecutive calendar weeks (ending this week or last) with a full portfolio pulse. */
 export async function getConsecutiveFullPulseWeeks(activeCount: number): Promise<number> {
   if (activeCount === 0) return 0;
+  const userId = await requireUserId();
   const db = await getDb();
   const res = await db.execute(
     `
     SELECT checked_at, COUNT(DISTINCT venture_id) AS venture_count
     FROM checkins
+    WHERE venture_id IN ${OWNED_VENTURES}
     GROUP BY checked_at
     HAVING venture_count >= ?
     ORDER BY checked_at DESC
     LIMIT 52
   `,
-    [activeCount]
+    [userId, activeCount]
   );
   if (res.rows.length === 0) return 0;
 
@@ -44,17 +48,19 @@ export async function getConsecutiveFullPulseWeeks(activeCount: number): Promise
 /** Latest timestamp where every active venture was checked in together (one ritual session). */
 export async function getLastFullRitualAt(activeCount: number): Promise<number | null> {
   if (activeCount === 0) return null;
+  const userId = await requireUserId();
   const db = await getDb();
   const res = await db.execute(
     `
     SELECT checked_at, COUNT(DISTINCT venture_id) AS venture_count
     FROM checkins
+    WHERE venture_id IN ${OWNED_VENTURES}
     GROUP BY checked_at
     HAVING venture_count >= ?
     ORDER BY checked_at DESC
     LIMIT 1
   `,
-    [activeCount]
+    [userId, activeCount]
   );
   if (res.rows.length === 0) return null;
   return Number(res.rows[0].checked_at);

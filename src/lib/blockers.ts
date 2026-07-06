@@ -1,5 +1,6 @@
 import { getDb, newId, nowMs } from "./db";
-import { getLatestCheckin } from "./checkins";
+import { requireUserId } from "./current-user";
+import { assertVentureOwned, OWNED_VENTURES } from "./ownership";
 import type { VentureBlocker } from "./blocker-types";
 import { rowToBlocker } from "./blocker-types";
 
@@ -10,36 +11,45 @@ export async function listBlockers(
   ventureId: string,
   opts?: { includeResolved?: boolean }
 ): Promise<VentureBlocker[]> {
+  const userId = await requireUserId();
   const db = await getDb();
   const sql = opts?.includeResolved
-    ? "SELECT * FROM venture_blockers WHERE venture_id = ? ORDER BY status ASC, is_primary DESC, sort_order ASC, created_at DESC"
-    : "SELECT * FROM venture_blockers WHERE venture_id = ? AND status = 'open' ORDER BY is_primary DESC, sort_order ASC, created_at DESC";
-  const res = await db.execute({ sql, args: [ventureId] });
+    ? `SELECT * FROM venture_blockers WHERE venture_id = ? AND venture_id IN ${OWNED_VENTURES}
+       ORDER BY status ASC, is_primary DESC, sort_order ASC, created_at DESC`
+    : `SELECT * FROM venture_blockers WHERE venture_id = ? AND venture_id IN ${OWNED_VENTURES} AND status = 'open'
+       ORDER BY is_primary DESC, sort_order ASC, created_at DESC`;
+  const res = await db.execute({ sql, args: [ventureId, userId] });
   return res.rows.map((r) => rowToBlocker(r as Record<string, unknown>));
 }
 
 export async function getPrimaryBlocker(ventureId: string): Promise<VentureBlocker | null> {
   await ensureBlockerFromLatestCheckin(ventureId);
+  const userId = await requireUserId();
   const db = await getDb();
   const res = await db.execute({
-    sql: "SELECT * FROM venture_blockers WHERE venture_id = ? AND status = 'open' AND is_primary = 1 LIMIT 1",
-    args: [ventureId],
+    sql: `SELECT * FROM venture_blockers
+          WHERE venture_id = ? AND venture_id IN ${OWNED_VENTURES} AND status = 'open' AND is_primary = 1 LIMIT 1`,
+    args: [ventureId, userId],
   });
   if (res.rows.length > 0) return rowToBlocker(res.rows[0] as Record<string, unknown>);
 
   const fallback = await db.execute({
-    sql: "SELECT * FROM venture_blockers WHERE venture_id = ? AND status = 'open' ORDER BY sort_order ASC, created_at DESC LIMIT 1",
-    args: [ventureId],
+    sql: `SELECT * FROM venture_blockers
+          WHERE venture_id = ? AND venture_id IN ${OWNED_VENTURES} AND status = 'open'
+          ORDER BY sort_order ASC, created_at DESC LIMIT 1`,
+    args: [ventureId, userId],
   });
   if (fallback.rows.length === 0) return null;
   return rowToBlocker(fallback.rows[0] as Record<string, unknown>);
 }
 
 export async function countOpenBlockers(ventureId: string): Promise<number> {
+  const userId = await requireUserId();
   const db = await getDb();
   const res = await db.execute({
-    sql: "SELECT COUNT(*) AS c FROM venture_blockers WHERE venture_id = ? AND status = 'open'",
-    args: [ventureId],
+    sql: `SELECT COUNT(*) AS c FROM venture_blockers
+          WHERE venture_id = ? AND venture_id IN ${OWNED_VENTURES} AND status = 'open'`,
+    args: [ventureId, userId],
   });
   return Number((res.rows[0] as Record<string, unknown>).c);
 }
@@ -50,7 +60,9 @@ export async function createBlocker(input: {
   makePrimary?: boolean;
   sourceCheckinId?: string | null;
 }): Promise<VentureBlocker> {
+  const userId = await requireUserId();
   const db = await getDb();
+  await assertVentureOwned(db, input.ventureId, userId);
   const id = newId();
   const ts = nowMs();
   const open = await listBlockers(input.ventureId);
@@ -92,18 +104,20 @@ export async function createBlocker(input: {
 }
 
 export async function updateBlocker(id: string, body: string): Promise<void> {
+  const userId = await requireUserId();
   const db = await getDb();
   await db.execute({
-    sql: "UPDATE venture_blockers SET body = ? WHERE id = ?",
-    args: [body.trim(), id],
+    sql: `UPDATE venture_blockers SET body = ? WHERE id = ? AND venture_id IN ${OWNED_VENTURES}`,
+    args: [body.trim(), id, userId],
   });
 }
 
 export async function linkBlockerToCheckin(id: string, checkinId: string): Promise<void> {
+  const userId = await requireUserId();
   const db = await getDb();
   await db.execute({
-    sql: "UPDATE venture_blockers SET source_checkin_id = ? WHERE id = ?",
-    args: [checkinId, id],
+    sql: `UPDATE venture_blockers SET source_checkin_id = ? WHERE id = ? AND venture_id IN ${OWNED_VENTURES}`,
+    args: [checkinId, id, userId],
   });
 }
 
@@ -143,7 +157,9 @@ export async function syncPrimaryBlockerFromCheckin(input: {
 }
 
 export async function setPrimaryBlocker(ventureId: string, blockerId: string): Promise<void> {
+  const userId = await requireUserId();
   const db = await getDb();
+  await assertVentureOwned(db, ventureId, userId);
   await db.execute({
     sql: "UPDATE venture_blockers SET is_primary = 0 WHERE venture_id = ? AND status = 'open'",
     args: [ventureId],
@@ -155,9 +171,13 @@ export async function setPrimaryBlocker(ventureId: string, blockerId: string): P
 }
 
 export async function resolveBlocker(id: string): Promise<void> {
+  const userId = await requireUserId();
   const db = await getDb();
   const ts = nowMs();
-  const row = await db.execute({ sql: "SELECT venture_id, is_primary FROM venture_blockers WHERE id = ?", args: [id] });
+  const row = await db.execute({
+    sql: `SELECT venture_id, is_primary FROM venture_blockers WHERE id = ? AND venture_id IN ${OWNED_VENTURES}`,
+    args: [id, userId],
+  });
   if (row.rows.length === 0) return;
   const ventureId = String((row.rows[0] as Record<string, unknown>).venture_id);
   const wasPrimary = Number((row.rows[0] as Record<string, unknown>).is_primary) === 1;
@@ -219,10 +239,12 @@ export async function createBlockerFromCheckin(input: {
 }
 
 export async function listAllOpenBlockers(): Promise<VentureBlocker[]> {
+  const userId = await requireUserId();
   const db = await getDb();
   const res = await db.execute({
-    sql: `SELECT * FROM venture_blockers WHERE status = 'open'
+    sql: `SELECT * FROM venture_blockers WHERE status = 'open' AND venture_id IN ${OWNED_VENTURES}
           ORDER BY venture_id, is_primary DESC, sort_order ASC, created_at DESC`,
+    args: [userId],
   });
   return res.rows.map((r) => rowToBlocker(r as Record<string, unknown>));
 }
