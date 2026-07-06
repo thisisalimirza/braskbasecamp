@@ -130,6 +130,7 @@ export default async function VenturePage({
       </div>
 
       <VentureDetailTabs
+        key={defaultTab}
         defaultTab={defaultTab}
         ventureId={venture.id}
         ventureSlug={slug}

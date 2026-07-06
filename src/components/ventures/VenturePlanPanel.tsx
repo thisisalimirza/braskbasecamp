@@ -891,58 +891,59 @@ function PlanCard({
       />
       {onMove && onDelete && (
         <div
-          className="mt-2 flex flex-wrap gap-1 opacity-0 transition-opacity duration-150 focus-within:opacity-100 group-hover:opacity-100 max-sm:opacity-100"
+          className="mt-2.5 flex items-center gap-0.5 border-t border-border/40 pt-2 opacity-0 transition-opacity duration-150 focus-within:opacity-100 group-hover:opacity-100 max-sm:opacity-100"
           onPointerDown={(e) => e.stopPropagation()}
         >
           {onEdit && (
-            <Button type="button" variant="ghost" size="sm" className="h-7 text-[11px]" onClick={() => onEdit(item)}>
-              <Pencil className="size-3" />
-            </Button>
+            <button
+              type="button"
+              title="Edit step"
+              aria-label="Edit step"
+              className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              onClick={() => onEdit(item)}
+            >
+              <Pencil className="size-3.5" />
+            </button>
           )}
+          <button
+            type="button"
+            title="Delete step"
+            aria-label="Delete step"
+            className="flex size-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            onClick={() => onDelete(item.id)}
+          >
+            <Trash2 className="size-3.5" />
+          </button>
+          <span className="flex-1" aria-hidden />
           {item.status !== "done" && (
             <>
               {item.status !== "doing" && (
-                <Button
+                <button
                   type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 text-[11px]"
+                  className="rounded-md px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   onClick={() => onMove(item.id, "doing")}
                 >
                   Start
-                </Button>
+                </button>
               )}
               {item.status !== "next" && item.status !== "doing" && (
-                <Button
+                <button
                   type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 text-[11px]"
+                  className="rounded-md px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   onClick={() => onMove(item.id, "next")}
                 >
                   Queue next
-                </Button>
+                </button>
               )}
-              <Button
+              <button
                 type="button"
-                variant="ghost"
-                size="sm"
-                className="h-7 text-[11px] text-emerald-700"
+                className="rounded-md px-2 py-1 text-[11px] font-medium text-emerald-700 transition-colors hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-950/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 onClick={() => onDone?.(item)}
               >
                 Done
-              </Button>
+              </button>
             </>
           )}
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-7 text-[11px] text-muted-foreground"
-            onClick={() => onDelete(item.id)}
-          >
-            <Trash2 className="size-3" />
-          </Button>
         </div>
       )}
     </div>
